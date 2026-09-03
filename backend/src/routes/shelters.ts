@@ -97,13 +97,14 @@ router.get('/stays/:victim_id', requireRole(['admin', 'staff']), async (req, res
 });
 
 // GET /api/shelters
-router.get('/', requireAnyAuth, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const rows = await query(`
       SELECT
         SH.shelter_id,
         SH.shelter_name,
         SH.current_status AS shelter_status,
+        SH.current_status AS current_status,
         SH.contact_person_name,
         SH.contact_person_phone,
         SH.address_line,
@@ -129,10 +130,10 @@ router.get('/', requireAnyAuth, async (req, res) => {
 });
 
 // GET /api/shelters/:id
-router.get('/:id', requireAnyAuth, async (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
     const [shelter] = await query(
-      `SELECT SH.shelter_id, SH.shelter_name, SH.current_status AS shelter_status,
+      `SELECT SH.shelter_id, SH.shelter_name, SH.current_status AS shelter_status, SH.current_status AS current_status,
               SH.contact_person_name, SH.contact_person_phone, SH.address_line,
               SH.longitude, SH.latitude, SH.capacity, SH.disaster_name,
               (SH.capacity - NVL((SELECT COUNT(*) FROM RESIDES_IN R WHERE R.shelter_id = SH.shelter_id AND R.checkout_date IS NULL), 0)) AS available_capacity

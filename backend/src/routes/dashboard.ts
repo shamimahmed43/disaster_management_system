@@ -4,8 +4,8 @@ import { requireAnyAuth } from '../middleware/auth';
 
 const router = Router();
 
-// GET /api/dashboard — All KPI data for the dashboard in one call
-router.get('/', requireAnyAuth, async (req, res) => {
+// GET /api/dashboard — All KPI data for the dashboard in one call (accessible publicly)
+router.get('/', async (req, res) => {
   try {
     // Single query for all KPIs using subselects from DUAL (Oracle pattern)
     const [counts] = await query<{

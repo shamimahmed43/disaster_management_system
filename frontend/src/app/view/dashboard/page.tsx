@@ -34,10 +34,13 @@ export default function PublicDashboardPage() {
   const [expandedDisaster, setExpandedDisaster] = useState<string | null>(null);
 
   const loadData = () => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("dms_token") : null;
+    const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+
     Promise.all([
-      fetch(`${API}/dashboard`).then((r) => r.json()),
-      fetch(`${API}/disasters`).then((r) => r.json()),
-      fetch(`${API}/shelters`).then((r) => r.json()),
+      fetch(`${API}/dashboard`, { headers }).then((r) => r.json()),
+      fetch(`${API}/disasters`, { headers }).then((r) => r.json()),
+      fetch(`${API}/shelters`, { headers }).then((r) => r.json()),
     ])
       .then(([dash, dis, shel]) => {
         setKpis({
@@ -60,16 +63,16 @@ export default function PublicDashboardPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const activeDisasters = disasters.filter((d) => !d.END_DATE);
-  const openShelters = shelters.filter((s) => s.CURRENT_STATUS === "Open");
+  const activeDisasters = disasters.filter((d) => !d.END_DATE || d.STATUS === "Active");
+  const openShelters = shelters.filter((s) => (s.CURRENT_STATUS || s.SHELTER_STATUS || "Open").toLowerCase() === "open");
 
   const shelterMapData: ShelterMapData[] = openShelters
     .filter((s) => s.LATITUDE && s.LONGITUDE && parseFloat(s.LATITUDE) !== 0)
     .map((s) => ({
       SHELTER_ID: s.SHELTER_ID, SHELTER_NAME: s.SHELTER_NAME,
       LATITUDE: s.LATITUDE, LONGITUDE: s.LONGITUDE,
-      CURRENT_STATUS: s.CURRENT_STATUS, CAPACITY: s.CAPACITY,
-      CURRENT_OCCUPANCY: s.CURRENT_OCCUPANCY, DISASTER_NAME: s.DISASTER_NAME,
+      CURRENT_STATUS: s.CURRENT_STATUS || s.SHELTER_STATUS || "Open", CAPACITY: s.CAPACITY,
+      CURRENT_OCCUPANCY: s.CURRENT_OCCUPANCY ?? 0, DISASTER_NAME: s.DISASTER_NAME,
     }));
 
   const disasterMapData: DisasterMapData[] = activeDisasters.map((d) => ({
@@ -489,7 +492,7 @@ export default function PublicDashboardPage() {
                                                 <td className="py-3 text-sm font-mono text-primary">{s.SHELTER_ID}</td>
                                                 <td className="py-3 text-sm text-on-surface truncate max-w-[200px]" title={s.SHELTER_NAME}>{s.SHELTER_NAME}</td>
                                                 <td className="py-3 text-sm">
-                                                  {s.CURRENT_STATUS === 'Open' ? (
+                                                  {(s.CURRENT_STATUS || s.SHELTER_STATUS || 'Open') === 'Open' ? (
                                                     <span className="text-success text-xs font-bold border border-success/30 px-2 py-0.5">OPEN</span>
                                                   ) : (
                                                     <span className="text-emergency-red text-xs font-bold border border-emergency-red/30 px-2 py-0.5">FULL</span>

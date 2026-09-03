@@ -10,7 +10,7 @@ function safeDate(dateStr: string | null | undefined): string | null {
 }
 
 // GET /api/disasters
-router.get('/', requireAnyAuth, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const { type, division, search } = req.query as Record<string, string>;
     const conditions: string[] = [];
@@ -53,7 +53,7 @@ router.get('/', requireAnyAuth, async (req, res) => {
 });
 
 // GET /api/disasters/:name
-router.get('/:name', requireAnyAuth, async (req, res) => {
+router.get('/:name', async (req, res) => {
   try {
     const paramName = req.params.name as string;
     const name = decodeURIComponent(paramName);
