@@ -1,8 +1,31 @@
 import { Router } from 'express';
 import { query } from '../config/db';
-import { requireRole } from '../middleware/auth';
+import { requireRole, requireVictimOwnership } from '../middleware/auth';
 
 const router = Router();
+
+// GET /api/distributions/victim/:victim_id
+router.get('/victim/:victim_id', requireVictimOwnership, async (req, res) => {
+  try {
+    const rows = await query(`
+      SELECT
+        D.distribution_id,
+        D.distribution_date,
+        D.quantity,
+        'Distributed' AS status,
+        W.warehouse_id,
+        W.warehouse_name,
+        W.location AS warehouse_location
+      FROM DISTRIBUTION D
+      JOIN WAREHOUSE W ON D.warehouse_id = W.warehouse_id
+      ORDER BY D.distribution_date DESC
+    `);
+    res.json({ data: rows });
+  } catch (err: any) {
+    const msg = process.env.NODE_ENV === 'development' ? err.message : 'Failed to fetch victim distributions';
+    res.status(500).json({ error: msg });
+  }
+});
 
 // GET /api/distributions
 router.get('/', requireRole(['admin', 'staff']), async (req, res) => {

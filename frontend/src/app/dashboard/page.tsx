@@ -7,9 +7,6 @@ import { getDashboardData } from "@/services/api";
 
 // Quick actions are static UI config, not from DB
 const QUICK_ACTIONS = [
-  { id: 1, title: "Register Victim", icon: "person_add", href: "/victims" },
-  { id: 2, title: "New Incident", icon: "warning", href: "/disasters/new" },
-  { id: 3, title: "Deploy Personnel", icon: "group_add", href: "/personnel" },
   { id: 4, title: "Public View", icon: "public", href: "/view/dashboard" },
 ];
 
@@ -207,9 +204,6 @@ export default function DashboardPage() {
       <div className="col-span-1 md:col-span-4 lg:col-span-8 bg-white rounded-[2rem] flex flex-col shadow-sm border border-gray-200 overflow-hidden min-h-[400px]">
         <div className="p-6 border-b border-gray-200 flex justify-between items-center bg-azure">
           <h3 className="font-display text-2xl text-black uppercase tracking-tight">Recent Disasters</h3>
-          <Link href="/disasters/new" className="text-white font-bold text-sm bg-cobalt hover:bg-cobalt-dark flex items-center gap-1 px-4 py-2 rounded-xl transition-colors">
-            <span className="material-symbols-outlined icon-thick text-[18px]">add</span> New Incident
-          </Link>
         </div>
         <div className="overflow-x-auto p-2">
           <table className="w-full text-left border-collapse">

@@ -161,12 +161,6 @@ export default function Header() {
 
       {/* Right: Actions */}
       <div className="flex items-center gap-4">
-        <Link href="/disasters/new"
-          className="hidden sm:flex items-center gap-2 px-4 py-2 bg-white text-cobalt hover:bg-gray-100 transition-colors rounded-xl font-bold text-sm shadow-sm">
-          <span className="material-symbols-outlined icon-thick text-[18px]">warning</span>
-          New Incident
-        </Link>
-        <div className="h-8 w-[2px] bg-cobalt-light mx-2"></div>
         <Link href="/view/dashboard"
           className="text-blue-200 hover:text-white bg-cobalt-dark hover:bg-cobalt-light transition-colors rounded-xl p-2.5 inline-flex"
           title="Public View"

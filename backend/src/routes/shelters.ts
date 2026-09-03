@@ -1,7 +1,7 @@
 import oracledb from 'oracledb';
 import { Router } from 'express';
 import { query, getConnection } from '../config/db';
-import { requireRole, requireAnyAuth } from '../middleware/auth';
+import { requireRole, requireAnyAuth, requireVictimOwnership } from '../middleware/auth';
 
 const router = Router();
 
@@ -74,7 +74,7 @@ router.post('/checkout', requireRole(['admin', 'staff']), async (req, res) => {
 });
 
 // GET /api/shelters/stays/:victim_id
-router.get('/stays/:victim_id', requireRole(['admin', 'staff']), async (req, res) => {
+router.get('/stays/:victim_id', requireVictimOwnership, async (req, res) => {
   try {
     const rows = await query(`
       SELECT
@@ -84,7 +84,10 @@ router.get('/stays/:victim_id', requireRole(['admin', 'staff']), async (req, res
         R.checkout_date,
         S.shelter_name,
         S.current_status,
-        S.address_line
+        S.address_line,
+        S.contact_person_name,
+        S.latitude,
+        S.longitude
       FROM RESIDES_IN R
       JOIN SHELTER S ON R.shelter_id = S.shelter_id
       WHERE R.victim_id = :victim_id

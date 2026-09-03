@@ -58,8 +58,8 @@ router.get('/:id', requireVictimOwnership, async (req, res) => {
     );
     if (!victim) return res.status(404).json({ error: 'Victim not found' });
 
-    const phonesRows = await query<{ PHONE_NUMBER: string }>(
-      `SELECT phone_number FROM VICTIM_PHONE WHERE victim_id = :id ORDER BY phone_number`,
+    const phonesRows = await query<{ PHONE: string }>(
+      `SELECT phone FROM VICTIM_PHONE WHERE victim_id = :id ORDER BY phone`,
       [req.params.id]
     );
     const family = await query(
@@ -74,7 +74,7 @@ router.get('/:id', requireVictimOwnership, async (req, res) => {
     res.json({
       data: {
         ...victim,
-        phones: phonesRows.map((r) => r.PHONE_NUMBER),
+        phones: phonesRows.map((r) => r.PHONE),
         family_members: family,
         special_needs: specialNeedsRows.map((r) => r.SPECIAL_NEED),
       },

@@ -29,7 +29,6 @@ const NAV_SECTIONS: NavSection[] = [
     title: "Operations",
     items: [
       { href: "/disasters", label: "Disasters", icon: "crisis_alert" },
-      { href: "/disasters/new", label: "New Incident", icon: "add_alert" },
       { href: "/victims", label: "Victim Registry", icon: "list_alt" },
       { href: "/shelters", label: "Shelters", icon: "house" },
     ],
