@@ -1,0 +1,7 @@
+◇ injected env (9) from .env // tip: ⌁ auth for agents [www.vestauth.com]
+◇ injected env (0) from .env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+✅ Oracle DB connection pool created successfully.
+🚀 Backend server running on http://localhost:5000
+📊 API: http://localhost:5000/api
+❤️  Health: http://localhost:5000/api/health
+🔌 DB Status: http://localhost:5000/api/status

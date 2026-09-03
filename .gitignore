@@ -1,0 +1,64 @@
+# ============================================================
+# DISASTER MANAGEMENT SYSTEM — Root .gitignore
+# ============================================================
+
+# ─── Node.js ─────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ─── Environment / Secrets (NEVER commit these) ──────────────
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+*.env
+
+# ─── Next.js Frontend Build ──────────────────────────────────
+frontend/.next/
+frontend/out/
+frontend/build/
+frontend/.vercel/
+frontend/next-env.d.ts
+frontend/*.tsbuildinfo
+
+# ─── Backend Build ───────────────────────────────────────────
+backend/dist/
+backend/*.tsbuildinfo
+
+# ─── Oracle Instant Client (platform-specific binary) ────────
+backend/instantclient*/
+*.ora
+
+# ─── OS Files ─────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+*.pem
+
+# ─── Editor / IDE ─────────────────────────────────────────────
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# ─── Coverage & Testing ───────────────────────────────────────
+coverage/
+*.lcov
+.nyc_output/
+
+# ─── Temporary / Debug ────────────────────────────────────────
+*.log
+*.tmp
+*.bak
+*.orig
+
+# ─── Design work files (large AI-generated or course notes) ──
+Deginer agent/
+
+# Temporary design files
+*.zip
+frontend/temp_*/
