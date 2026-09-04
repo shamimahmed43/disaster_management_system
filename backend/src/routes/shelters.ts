@@ -172,6 +172,7 @@ router.post('/', requireRole(['admin', 'staff']), async (req, res) => {
     contact_person_name,
     manager_name,
     contact_person_phone,
+    manager_phone,
     address_line,
     location,
     longitude,
@@ -180,18 +181,28 @@ router.post('/', requireRole(['admin', 'staff']), async (req, res) => {
     disaster_name
   } = req.body;
 
-  const id = shelter_id?.trim();
-  const name = shelter_name?.trim();
+  const id = shelter_id ? String(shelter_id).trim() : '';
+  const name = shelter_name ? String(shelter_name).trim() : '';
+  const address = (address_line || location) ? String(address_line || location).trim() : null;
+  const manager = (contact_person_name || manager_name) ? String(contact_person_name || manager_name).trim() : null;
+  const phone = (contact_person_phone || manager_phone) ? String(contact_person_phone || manager_phone).trim() : null;
   const cap = Number(capacity);
-  const status = shelter_status || current_status || 'Open';
-  const manager = contact_person_name || manager_name || null;
-  const address = address_line || location || null;
-  const phone = contact_person_phone || null;
-  const lat = latitude ? String(latitude) : '0';
-  const lng = longitude ? String(longitude) : '0';
+  
+  let status = (shelter_status || current_status || 'Open').trim();
+  const validStatuses = ['Open', 'Full', 'Closed'];
+  if (!validStatuses.includes(status)) {
+    status = 'Open';
+  }
 
-  if (!id || !name || !cap || isNaN(cap)) {
-    return res.status(422).json({ error: 'Shelter ID, Shelter Name, and Capacity are required' });
+  const lat = latitude ? String(latitude).trim() : '0';
+  const lng = longitude ? String(longitude).trim() : '0';
+
+  if (!id || !name || !address || !capacity) {
+    return res.status(422).json({ error: 'Shelter ID, Shelter Name, Location/Address, and Capacity are required' });
+  }
+
+  if (isNaN(cap) || cap <= 0) {
+    return res.status(422).json({ error: 'Capacity must be a positive number' });
   }
 
   try {
@@ -199,7 +210,7 @@ router.post('/', requireRole(['admin', 'staff']), async (req, res) => {
     if (disaster_name) {
       const match = await query<any>(
         `SELECT disaster_name FROM DISASTER_EVENT WHERE LOWER(disaster_name) = LOWER(:dname)`,
-        [disaster_name.trim()]
+        [String(disaster_name).trim()]
       );
       if (match && match.length > 0) {
         validDisaster = match[0].DISASTER_NAME;
@@ -211,7 +222,18 @@ router.post('/', requireRole(['admin', 'staff']), async (req, res) => {
       );
       if (activeRows && activeRows.length > 0) {
         validDisaster = activeRows[0].DISASTER_NAME;
+      } else {
+        const anyRows = await query<any>(
+          `SELECT disaster_name FROM DISASTER_EVENT ORDER BY start_date DESC`
+        );
+        if (anyRows && anyRows.length > 0) {
+          validDisaster = anyRows[0].DISASTER_NAME;
+        }
       }
+    }
+
+    if (!validDisaster) {
+      return res.status(422).json({ error: 'No active disaster event found to associate the shelter with.' });
     }
 
     await query(
@@ -221,13 +243,19 @@ router.post('/', requireRole(['admin', 'staff']), async (req, res) => {
     );
 
     res.status(201).json({
-      message: 'Shelter created successfully',
+      message: 'Shelter registered successfully',
       data: { shelter_id: id, shelter_name: name }
     });
   } catch (err: any) {
     console.error('[Shelters] POST error:', err);
-    if (err.errorNum === 1) return res.status(409).json({ error: 'Shelter ID already exists' });
-    res.status(500).json({ error: err.message || 'Failed to create shelter' });
+    if (err.errorNum === 1 || (err.message && err.message.includes('ORA-00001'))) {
+      return res.status(409).json({ error: `Shelter ID "${id}" already exists.` });
+    }
+    if (err.errorNum === 2291 || (err.message && err.message.includes('ORA-02291'))) {
+      return res.status(422).json({ error: 'Selected disaster event is not valid.' });
+    }
+    const msg = err.message || 'Failed to create shelter.';
+    res.status(500).json({ error: msg });
   }
 });
 

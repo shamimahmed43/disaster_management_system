@@ -38,8 +38,15 @@ export default function SheltersPage() {
   // Drawer state
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [form, setForm] = useState({
-    shelter_id: "", shelter_name: "", capacity: "", shelter_status: "Open",
-    contact_person_name: "", address_line: "", latitude: "", longitude: ""
+    shelter_id: "",
+    shelter_name: "",
+    capacity: "",
+    shelter_status: "Open",
+    contact_person_name: "",
+    contact_person_phone: "",
+    address_line: "",
+    latitude: "",
+    longitude: ""
   });
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -139,8 +146,13 @@ export default function SheltersPage() {
   );
 
   async function handleAddShelter() {
-    if (!form.shelter_id || !form.shelter_name || !form.capacity) {
-      setSubmitError("Shelter ID, Shelter Name, and Capacity are required.");
+    if (!form.shelter_id.trim() || !form.shelter_name.trim() || !form.address_line.trim() || !form.capacity) {
+      setSubmitError("Shelter ID, Shelter Name, Location/Address, and Capacity are required.");
+      return;
+    }
+    const capNum = parseInt(form.capacity);
+    if (isNaN(capNum) || capNum <= 0) {
+      setSubmitError("Capacity must be a positive number.");
       return;
     }
     setSubmitting(true);
@@ -151,9 +163,11 @@ export default function SheltersPage() {
         shelter_name: form.shelter_name.trim(),
         address_line: form.address_line.trim(),
         location: form.address_line.trim(),
-        capacity: parseInt(form.capacity),
+        capacity: capNum,
         contact_person_name: form.contact_person_name.trim(),
         manager_name: form.contact_person_name.trim(),
+        contact_person_phone: form.contact_person_phone.trim(),
+        manager_phone: form.contact_person_phone.trim(),
         shelter_status: form.shelter_status,
         latitude: form.latitude ? form.latitude.trim() : null,
         longitude: form.longitude ? form.longitude.trim() : null,
@@ -170,14 +184,16 @@ export default function SheltersPage() {
           capacity: "",
           shelter_status: "Open",
           contact_person_name: "",
+          contact_person_phone: "",
           address_line: "",
           latitude: "",
           longitude: ""
         });
       }, 1500);
     } catch (err: any) {
-      setSubmitError(err.message ?? "Failed to add shelter");
-      toast.error(err.message ?? "Failed to add shelter");
+      const errMsg = err.message ?? "Failed to add shelter";
+      setSubmitError(errMsg);
+      toast.error(errMsg);
     } finally {
       setSubmitting(false);
     }
@@ -321,15 +337,28 @@ export default function SheltersPage() {
                   {loadingAlerts ? 'Checking...' : 'Check Capacity Alerts'}
                 </button>
               )}
-              {canEdit && (
-                <button
-                  onClick={() => { setForm({ shelter_id: "", shelter_name: "", capacity: "", shelter_status: "Open", contact_person_name: "", address_line: "", latitude: "", longitude: "" }); setSubmitError(null); setSubmitSuccess(false); setIsDrawerOpen(true); }}
-                  className="flex items-center justify-center gap-2 px-5 py-3 bg-cobalt hover:bg-cobalt-dark rounded-xl text-white font-bold text-sm transition-colors shadow-sm"
-                >
-                  <span className="material-symbols-outlined icon-thick text-[18px]">add</span>
-                  Add New Shelter
-                </button>
-              )}
+              <button
+                onClick={() => {
+                  setForm({
+                    shelter_id: "",
+                    shelter_name: "",
+                    capacity: "",
+                    shelter_status: "Open",
+                    contact_person_name: "",
+                    contact_person_phone: "",
+                    address_line: "",
+                    latitude: "",
+                    longitude: ""
+                  });
+                  setSubmitError(null);
+                  setSubmitSuccess(false);
+                  setIsDrawerOpen(true);
+                }}
+                className="flex items-center justify-center gap-2 px-5 py-3 bg-cobalt hover:bg-cobalt-dark rounded-xl text-white font-bold text-sm transition-colors shadow-sm"
+              >
+                <span className="material-symbols-outlined icon-thick text-[18px]">add</span>
+                Add New Shelter
+              </button>
             </div>
           </div>
 
@@ -449,9 +478,10 @@ export default function SheltersPage() {
           {[
             { key: "shelter_id", label: "Shelter ID *", placeholder: "e.g., SH007" },
             { key: "shelter_name", label: "Shelter Name *", placeholder: "e.g., Dhaka Central Emergency Shelter" },
-            { key: "address_line", label: "Location / Address", placeholder: "e.g., Mirpur, Dhaka", list: "locations-list" },
+            { key: "address_line", label: "Location / Address *", placeholder: "e.g., Mirpur, Dhaka", list: "locations-list" },
             { key: "capacity", label: "Capacity *", placeholder: "e.g., 500", type: "number" },
             { key: "contact_person_name", label: "Manager Name", placeholder: "e.g., Rafiqul Islam" },
+            { key: "contact_person_phone", label: "Manager Phone", placeholder: "e.g., +880 1711-223344" },
           ].map(({ key, label, placeholder, type, list }) => (
             <div key={key}>
               <label className="block font-mono text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">{label}</label>
