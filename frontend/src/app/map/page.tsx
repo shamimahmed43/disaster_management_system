@@ -83,7 +83,7 @@ export default function OperationalMapPage() {
   );
 
   return (
-    <div className="flex h-full overflow-hidden">
+    <div className="flex h-[calc(100vh-140px)] min-h-[500px] overflow-hidden rounded-[2rem]">
       {/* Left panel */}
       <div className="w-[300px] shrink-0 flex flex-col border-r border-outline-variant bg-surface overflow-hidden">
         {/* Header */}

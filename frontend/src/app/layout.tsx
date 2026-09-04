@@ -54,7 +54,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${inter.variable} ${jetbrainsMono.variable} ${syncopate.variable} ${playfair.variable} antialiased min-h-screen bg-background text-on-background flex flex-col h-screen overflow-hidden`}
+        className={`${inter.variable} ${jetbrainsMono.variable} ${syncopate.variable} ${playfair.variable} antialiased min-h-screen bg-background text-on-background flex flex-col`}
       >
         <ClientLayout>{children}</ClientLayout>
       </body>

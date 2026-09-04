@@ -101,7 +101,7 @@ export default function Sidebar() {
       : "Oracle DB: Disconnected";
 
   return (
-    <nav className="hidden md:flex flex-col w-64 h-full bg-white rounded-[2rem] shadow-sm shrink-0 relative z-10 overflow-hidden border border-gray-200">
+    <nav className="hidden md:flex flex-col w-64 h-[calc(100vh-1rem)] md:h-[calc(100vh-2rem)] sticky top-2 md:top-4 bg-white rounded-[2rem] shadow-sm shrink-0 relative z-10 overflow-hidden border border-gray-200">
       {/* Header */}
       <div className="p-6">
         <h2 className="font-display text-2xl text-black tracking-tight">Mission Control</h2>
