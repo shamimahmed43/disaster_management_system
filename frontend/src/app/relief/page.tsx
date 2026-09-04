@@ -43,7 +43,7 @@ export default function ReliefPage() {
   const [form, setForm] = useState({
     distribution_id: "", warehouse_id: "", person_id: "", shelter_id: "",
     distribution_date: new Date().toISOString().split("T")[0],
-    quantity: "", vehicle_id: "",
+    quantity: "", status: "Completed",
   });
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -116,7 +116,7 @@ export default function ReliefPage() {
   const setField = (k: string, v: string) => setForm((p) => ({ ...p, [k]: v }));
 
   const openAdd = () => {
-    setForm({ distribution_id: "", warehouse_id: "", person_id: "", shelter_id: "", distribution_date: new Date().toISOString().split("T")[0], quantity: "", vehicle_id: "" });
+    setForm({ distribution_id: "", warehouse_id: "", person_id: "", shelter_id: "", distribution_date: new Date().toISOString().split("T")[0], quantity: "", status: "Completed" });
     setSubmitError(null);
     setSubmitSuccess(false);
     setIsDrawerOpen(true);
@@ -164,7 +164,7 @@ export default function ReliefPage() {
               className="flex items-center justify-center gap-2 px-5 py-3 bg-cobalt hover:bg-cobalt-dark rounded-xl text-white font-bold text-sm transition-colors shadow-sm"
             >
               <span className="material-symbols-outlined icon-thick text-[18px]">add</span>
-              + New Relief Distribution
+              Add Relief Distribution
             </button>
           )}
         </div>
@@ -289,7 +289,7 @@ export default function ReliefPage() {
             <button className="p-2 rounded-full hover:bg-blue-100 transition-colors text-cobalt" onClick={() => setIsDrawerOpen(false)}>
               <span className="material-symbols-outlined icon-thick">close</span>
             </button>
-            <h3 className="font-display text-xl text-black">New Distribution Record</h3>
+            <h3 className="font-display text-xl text-black">Add Relief Distribution</h3>
           </div>
         </div>
         
@@ -349,11 +349,13 @@ export default function ReliefPage() {
           </div>
           
           <div>
-            <label className="block font-mono text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Vehicle (optional)</label>
-            <select value={form.vehicle_id} onChange={(e) => setField("vehicle_id", e.target.value)}
+            <label className="block font-mono text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Status</label>
+            <select value={form.status || "Completed"} onChange={(e) => setField("status", e.target.value)}
               className="w-full bg-gray-50 border border-gray-200 focus:border-cobalt focus:ring-2 focus:ring-azure rounded-xl px-4 py-3 text-sm font-medium text-black outline-none transition-all">
-              <option value="">-- None --</option>
-              {(vehicles ?? []).map((v: any) => <option key={v.VEHICLE_ID} value={v.VEHICLE_ID}>{v.VEHICLE_TYPE} — {v.REGISTRATION_NO}</option>)}
+              <option value="Completed">Completed</option>
+              <option value="Pending">Pending</option>
+              <option value="In Transit">In Transit</option>
+              <option value="Cancelled">Cancelled</option>
             </select>
           </div>
         </div>
@@ -365,7 +367,7 @@ export default function ReliefPage() {
             className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-sm bg-cobalt hover:bg-cobalt-dark text-white transition-colors shadow-sm disabled:opacity-50"
           >
             {submitting ? <span className="material-symbols-outlined icon-thick animate-spin">progress_activity</span> : <span className="material-symbols-outlined icon-thick">save</span>}
-            {submitting ? "Saving..." : "Create Distribution"}
+            {submitting ? "Saving..." : "Add Relief Distribution"}
           </button>
         </div>
       </div>

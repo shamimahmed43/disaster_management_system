@@ -185,23 +185,7 @@ export default function DashboardPage() {
         </div>
       </Link>
 
-      {/* Quick Actions Strip */}
-      <div className="col-span-full bg-azure border border-blue-200 rounded-[2rem] p-6 shadow-sm flex flex-col md:flex-row items-center gap-6">
-        <p className="font-mono text-sm text-black uppercase tracking-widest font-bold shrink-0">Quick Actions</p>
-        <div className="flex flex-wrap gap-3 w-full">
-          {QUICK_ACTIONS.map((action, i) => (
-            <Link key={action.id} href={action.href}
-              className={`flex-1 md:flex-none flex justify-center items-center gap-2 px-5 py-3 rounded-xl font-bold text-sm transition-colors shadow-sm ${
-                i % 2 !== 0 
-                  ? "bg-cobalt hover:bg-cobalt-dark text-white" 
-                  : "bg-white hover:bg-gray-50 border border-blue-200 text-cobalt"
-              }`}>
-              <span className="material-symbols-outlined icon-thick text-[18px]">{action.icon}</span>
-              {action.title}
-            </Link>
-          ))}
-        </div>
-      </div>
+
 
       {/* Recent Disasters Table */}
       <div className="col-span-1 md:col-span-4 lg:col-span-8 bg-white rounded-[2rem] flex flex-col shadow-sm border border-gray-200 overflow-hidden min-h-[400px]">

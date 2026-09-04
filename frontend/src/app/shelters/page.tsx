@@ -306,7 +306,7 @@ export default function SheltersPage() {
                   className="flex items-center justify-center gap-2 px-5 py-3 bg-cobalt hover:bg-cobalt-dark rounded-xl text-white font-bold text-sm transition-colors shadow-sm"
                 >
                   <span className="material-symbols-outlined icon-thick text-[18px]">add</span>
-                  + New Shelter
+                  Add Shelter
                 </button>
               )}
             </div>
@@ -412,7 +412,7 @@ export default function SheltersPage() {
             <button className="p-2 rounded-full hover:bg-blue-100 transition-colors text-cobalt" onClick={() => setIsDrawerOpen(false)}>
               <span className="material-symbols-outlined icon-thick">close</span>
             </button>
-            <h3 className="font-display text-xl text-black">Register Shelter</h3>
+            <h3 className="font-display text-xl text-black">Add Shelter</h3>
           </div>
         </div>
         
@@ -429,7 +429,7 @@ export default function SheltersPage() {
             { key: "shelter_id", label: "Shelter ID *", placeholder: "e.g., S-005" },
             { key: "shelter_name", label: "Shelter Name *", placeholder: "e.g., Dhaka School Camp" },
             { key: "capacity", label: "Capacity *", placeholder: "e.g., 500", type: "number" },
-            { key: "contact_person_name", label: "Contact Person", placeholder: "Name" },
+            { key: "contact_person_name", label: "Contact Person Name", placeholder: "Name" },
             { key: "address_line", label: "Address", placeholder: "Full address", list: "locations-list" },
             { key: "latitude", label: "Latitude (for map)", placeholder: "e.g., 23.8103" },
             { key: "longitude", label: "Longitude (for map)", placeholder: "e.g., 90.4125" },
@@ -449,7 +449,7 @@ export default function SheltersPage() {
           </datalist>
           
           <div>
-            <label className="block font-mono text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Status</label>
+            <label className="block font-mono text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Shelter Status</label>
             <select value={form.shelter_status} onChange={(e) => setField("shelter_status", e.target.value)}
               className="w-full bg-gray-50 border border-gray-200 focus:border-cobalt focus:ring-2 focus:ring-azure rounded-xl px-4 py-3 text-sm font-medium text-black outline-none transition-all">
               <option>Open</option><option>Full</option><option>Closed</option>
@@ -464,7 +464,7 @@ export default function SheltersPage() {
             className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-sm bg-cobalt hover:bg-cobalt-dark text-white transition-colors shadow-sm disabled:opacity-50"
           >
             {submitting ? <span className="material-symbols-outlined icon-thick animate-spin">progress_activity</span> : <span className="material-symbols-outlined icon-thick">save</span>}
-            {submitting ? "Saving..." : "Register Shelter"}
+            {submitting ? "Saving..." : "Add Shelter"}
           </button>
         </div>
       </div>
