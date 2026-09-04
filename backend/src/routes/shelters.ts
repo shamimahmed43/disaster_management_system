@@ -17,7 +17,7 @@ router.get('/alerts', requireRole(['admin', 'staff']), async (req, res) => {
       },
       { outFormat: oracledb.OUT_FORMAT_OBJECT }
     );
-    const resultSet = result.outBinds.cursor;
+    const resultSet = (result.outBinds as any)?.cursor;
     const rows = [];
     let row;
     while ((row = await resultSet.getRow())) {
@@ -164,22 +164,70 @@ router.get('/:id', async (req, res) => {
 
 // POST /api/shelters
 router.post('/', requireRole(['admin', 'staff']), async (req, res) => {
-  const { shelter_id, shelter_name, shelter_status, contact_person_name, contact_person_phone,
-          address_line, longitude, latitude, capacity, disaster_name } = req.body;
-  if (!shelter_id || !shelter_name || !capacity) {
-    return res.status(422).json({ error: 'Missing required fields' });
+  const {
+    shelter_id,
+    shelter_name,
+    shelter_status,
+    current_status,
+    contact_person_name,
+    manager_name,
+    contact_person_phone,
+    address_line,
+    location,
+    longitude,
+    latitude,
+    capacity,
+    disaster_name
+  } = req.body;
+
+  const id = shelter_id?.trim();
+  const name = shelter_name?.trim();
+  const cap = Number(capacity);
+  const status = shelter_status || current_status || 'Open';
+  const manager = contact_person_name || manager_name || null;
+  const address = address_line || location || null;
+  const phone = contact_person_phone || null;
+  const lat = latitude ? String(latitude) : '0';
+  const lng = longitude ? String(longitude) : '0';
+
+  if (!id || !name || !cap || isNaN(cap)) {
+    return res.status(422).json({ error: 'Shelter ID, Shelter Name, and Capacity are required' });
   }
+
   try {
+    let validDisaster: string | null = null;
+    if (disaster_name) {
+      const match = await query<any>(
+        `SELECT disaster_name FROM DISASTER_EVENT WHERE LOWER(disaster_name) = LOWER(:dname)`,
+        [disaster_name.trim()]
+      );
+      if (match && match.length > 0) {
+        validDisaster = match[0].DISASTER_NAME;
+      }
+    }
+    if (!validDisaster) {
+      const activeRows = await query<any>(
+        `SELECT disaster_name FROM DISASTER_EVENT WHERE end_date IS NULL ORDER BY start_date DESC`
+      );
+      if (activeRows && activeRows.length > 0) {
+        validDisaster = activeRows[0].DISASTER_NAME;
+      }
+    }
+
     await query(
       `INSERT INTO SHELTER (shelter_id, shelter_name, current_status, contact_person_name, contact_person_phone, address_line, longitude, latitude, capacity, disaster_name, geo_location)
-       VALUES (:shelter_id, :shelter_name, :shelter_status, :contact_person_name, :contact_person_phone, :address_line, :longitude, :latitude, :capacity, :disaster_name, LOCATION_T(:latitude, :longitude, :address_line))`,
-      [shelter_id, shelter_name, shelter_status || 'Open', contact_person_name || null, contact_person_phone || null,
-       address_line || null, longitude || null, latitude || null, capacity, disaster_name || null]
+       VALUES (:shelter_id, :shelter_name, :shelter_status, :contact_person_name, :contact_person_phone, :address_line, :longitude, :latitude, :capacity, :disaster_name, LOCATION_T(NVL(:latitude, '0'), NVL(:longitude, '0'), NVL(:address_line, 'N/A')))`,
+      [id, name, status, manager, phone, address, lng, lat, cap, validDisaster, lat, lng, address || 'N/A']
     );
-    res.status(201).json({ message: 'Shelter created', shelter_id });
+
+    res.status(201).json({
+      message: 'Shelter created successfully',
+      data: { shelter_id: id, shelter_name: name }
+    });
   } catch (err: any) {
+    console.error('[Shelters] POST error:', err);
     if (err.errorNum === 1) return res.status(409).json({ error: 'Shelter ID already exists' });
-    res.status(500).json({ error: 'Failed to create shelter' });
+    res.status(500).json({ error: err.message || 'Failed to create shelter' });
   }
 });
 

@@ -62,7 +62,7 @@ router.get('/:id', requireVictimOwnership, async (req, res) => {
       `SELECT phone FROM VICTIM_PHONE WHERE victim_id = :id ORDER BY phone`,
       [req.params.id]
     );
-    const family = await query(
+    const family = await query<{ MEMBER_SEQ_NO: number; NAME: string }>(
       `SELECT member_seq_no, name FROM FAMILY_MEMBER WHERE victim_id = :id ORDER BY member_seq_no`,
       [req.params.id]
     );
@@ -80,6 +80,7 @@ router.get('/:id', requireVictimOwnership, async (req, res) => {
       },
     });
   } catch (err: any) {
+    console.error('[Victims] GET /:id error:', err);
     const msg = process.env.NODE_ENV === 'development' ? err.message : 'Failed to fetch victim';
     res.status(500).json({ error: msg });
   }
@@ -120,7 +121,7 @@ router.post('/', requireRole(['admin', 'staff']), async (req, res) => {
       for (const phone of phones) {
         if (phone && typeof phone === 'string' && phone.trim()) {
           await query(
-            `INSERT INTO VICTIM_PHONE (victim_id, phone_number) VALUES (:victim_id, :phone)`,
+            `INSERT INTO VICTIM_PHONE (victim_id, phone) VALUES (:victim_id, :phone)`,
             [victim_id, phone.trim()]
           );
         }
@@ -182,23 +183,111 @@ router.put('/:id', requireRole(['admin', 'staff']), async (req, res) => {
   }
 });
 
-// PATCH /api/victims/:id/status
-router.patch('/:id/status', requireVictimOwnership, async (req, res) => {
-  const { missing_person, last_known_location } = req.body;
-  const victim_id = req.params.id;
+// POST /api/victims/:id/family
+router.post('/:id/family', requireVictimOwnership, async (req, res) => {
+  const victim_id = req.params.id as string;
+  const { name, age, relation_to_head } = req.body;
+
+  if (!name || typeof name !== 'string' || !name.trim()) {
+    return res.status(422).json({ error: 'Family member name is required.' });
+  }
+
+  try {
+    const [seqResult] = await query<{ NEXT_SEQ: number }>(
+      `SELECT NVL(MAX(member_seq_no), 0) + 1 AS NEXT_SEQ FROM FAMILY_MEMBER WHERE victim_id = :victim_id`,
+      [victim_id]
+    );
+    const nextSeq = seqResult ? seqResult.NEXT_SEQ : 1;
+
+    // Compose formatted string if relationship or age are provided
+    const trimmedName = name.trim();
+    const details: string[] = [];
+    if (relation_to_head && typeof relation_to_head === 'string' && relation_to_head.trim()) {
+      details.push(relation_to_head.trim());
+    }
+    if (age !== undefined && age !== null && String(age).trim() !== '') {
+      details.push(`${String(age).trim()} yrs`);
+    }
+    const finalStoredName = details.length > 0 ? `${trimmedName} (${details.join(', ')})` : trimmedName;
+
+    await query(
+      `INSERT INTO FAMILY_MEMBER (victim_id, member_seq_no, name)
+       VALUES (:victim_id, :member_seq_no, :name)`,
+      {
+        victim_id,
+        member_seq_no: nextSeq,
+        name: finalStoredName
+      }
+    );
+
+    res.status(201).json({
+      message: 'Family member added successfully.',
+      data: {
+        MEMBER_SEQ_NO: nextSeq,
+        NAME: finalStoredName
+      }
+    });
+  } catch (err: any) {
+    console.error('[Victims] POST /:id/family error:', err);
+    res.status(500).json({ error: 'Failed to add family member.' });
+  }
+});
+
+// POST /api/victims/:id/phone
+router.post('/:id/phone', requireVictimOwnership, async (req, res) => {
+  const victim_id = req.params.id as string;
+  const { phone } = req.body;
+
+  if (!phone || typeof phone !== 'string' || !phone.trim()) {
+    return res.status(422).json({ error: 'Phone number is required.' });
+  }
+
+  try {
+    await query(
+      `INSERT INTO VICTIM_PHONE (victim_id, phone) VALUES (:victim_id, :phone)`,
+      [victim_id, phone.trim()]
+    );
+
+    res.status(201).json({
+      message: 'Emergency contact added successfully.',
+      data: { phone: phone.trim() }
+    });
+  } catch (err: any) {
+    if (err.errorNum === 1) {
+      return res.status(409).json({ error: 'This phone number is already registered for this victim.' });
+    }
+    console.error('[Victims] POST /:id/phone error:', err);
+    res.status(500).json({ error: 'Failed to add emergency contact.' });
+  }
+});
+
+// PUT /api/victims/:id/profile
+router.put('/:id/profile', requireVictimOwnership, async (req, res) => {
+  const victim_id = req.params.id as string;
+  const { household_head_name, gender, nid_number, last_known_location, special_needs } = req.body;
 
   try {
     await query(
       `UPDATE VICTIM 
-       SET missing_person = NVL(:missing_person, missing_person), 
-           last_known_location = NVL(:last_known_location, last_known_location)
+       SET household_head_name = NVL(:household_head_name, household_head_name),
+           gender = NVL(:gender, gender),
+           nid_number = NVL(:nid_number, nid_number),
+           last_known_location = NVL(:last_known_location, last_known_location),
+           special_needs = :special_needs
        WHERE victim_id = :victim_id`,
-      [missing_person || null, last_known_location || null, victim_id]
+      {
+        household_head_name: household_head_name ? household_head_name.trim() : null,
+        gender: gender ? gender.trim() : null,
+        nid_number: nid_number ? nid_number.trim() : null,
+        last_known_location: last_known_location ? last_known_location.trim() : null,
+        special_needs: special_needs ? special_needs.trim() : null,
+        victim_id
+      }
     );
-    res.json({ message: 'Status updated successfully.' });
+    res.json({ message: 'Profile updated successfully.' });
   } catch (err: any) {
-    console.error('[Victims] PATCH error:', err);
-    res.status(500).json({ error: 'Failed to update status.' });
+    console.error('[Victims] PUT /:id/profile error:', err);
+    res.status(500).json({ error: 'Failed to update profile.' });
   }
 });
 

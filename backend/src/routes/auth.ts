@@ -250,7 +250,7 @@ router.post('/victim/register', async (req: Request, res: Response) => {
       if (victimPhone) {
         try {
           await query(
-            `INSERT INTO VICTIM_PHONE (victim_id, phone_number) VALUES (:victim_id, :phone)`,
+            `INSERT INTO VICTIM_PHONE (victim_id, phone) VALUES (:victim_id, :phone)`,
             [victim_id, victimPhone]
           );
         } catch (phoneErr) {}
@@ -345,8 +345,30 @@ router.post('/victim/login', async (req: Request, res: Response) => {
     const passwordMatch = await bcrypt.compare(password, user.PASSWORD_HASH);
     if (!passwordMatch) return res.status(401).json({ error: 'Invalid email or password.' });
 
+    let victimId = user.VICTIM_ID;
+    if (!victimId) {
+      // Find or create victim record if missing
+      const [existingVictim] = await query<any>(
+        `SELECT victim_id FROM VICTIM WHERE LOWER(household_head_name) = LOWER(:name) ORDER BY reported_date DESC`,
+        [user.FULL_NAME]
+      );
+      if (existingVictim) {
+        victimId = existingVictim.VICTIM_ID;
+      } else {
+        victimId = `VIC-${Date.now()}`;
+        const [disaster] = await query<any>(`SELECT disaster_name FROM DISASTER_EVENT ORDER BY start_date DESC`);
+        const disasterName = disaster?.DISASTER_NAME || 'General Relief';
+        await query(
+          `INSERT INTO VICTIM (victim_id, household_head_name, reported_date, missing_person, disaster_name)
+           VALUES (:victim_id, :name, SYSDATE, 'N', :disaster_name)`,
+          { victim_id: victimId, name: user.FULL_NAME, disaster_name: disasterName }
+        );
+      }
+      await query(`UPDATE APP_USER SET victim_id = :victim_id WHERE user_id = :user_id`, [victimId, user.USER_ID]);
+    }
+
     const token = jwt.sign(
-      { user_id: user.USER_ID, email: user.EMAIL, role: user.ROLE, name: user.FULL_NAME, victim_id: user.VICTIM_ID },
+      { user_id: user.USER_ID, email: user.EMAIL, role: user.ROLE, name: user.FULL_NAME, victim_id: victimId },
       JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -364,7 +386,7 @@ router.post('/victim/login', async (req: Request, res: Response) => {
         email: user.EMAIL,
         role: user.ROLE,
         name: user.FULL_NAME,
-        victim_id: user.VICTIM_ID,
+        victim_id: victimId,
         token
       }
     });

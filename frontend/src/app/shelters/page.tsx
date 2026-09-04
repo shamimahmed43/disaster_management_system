@@ -67,7 +67,7 @@ export default function SheltersPage() {
     try {
       const res = await fetch(`${API}/shelters/alerts`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('dms_token')}`
         }
       });
       const json = await res.json();
@@ -140,23 +140,44 @@ export default function SheltersPage() {
 
   async function handleAddShelter() {
     if (!form.shelter_id || !form.shelter_name || !form.capacity) {
-      setSubmitError("Shelter ID, Name, and Capacity are required.");
+      setSubmitError("Shelter ID, Shelter Name, and Capacity are required.");
       return;
     }
     setSubmitting(true);
     setSubmitError(null);
     try {
       await createShelter({
-        ...form,
+        shelter_id: form.shelter_id.trim(),
+        shelter_name: form.shelter_name.trim(),
+        address_line: form.address_line.trim(),
+        location: form.address_line.trim(),
         capacity: parseInt(form.capacity),
-        latitude: form.latitude || null,
-        longitude: form.longitude || null,
+        contact_person_name: form.contact_person_name.trim(),
+        manager_name: form.contact_person_name.trim(),
+        shelter_status: form.shelter_status,
+        latitude: form.latitude ? form.latitude.trim() : null,
+        longitude: form.longitude ? form.longitude.trim() : null,
       });
       setSubmitSuccess(true);
+      toast.success("Shelter registered successfully!");
       refetch();
-      setTimeout(() => setIsDrawerOpen(false), 1500);
+      setTimeout(() => {
+        setIsDrawerOpen(false);
+        setSubmitSuccess(false);
+        setForm({
+          shelter_id: "",
+          shelter_name: "",
+          capacity: "",
+          shelter_status: "Open",
+          contact_person_name: "",
+          address_line: "",
+          latitude: "",
+          longitude: ""
+        });
+      }, 1500);
     } catch (err: any) {
       setSubmitError(err.message ?? "Failed to add shelter");
+      toast.error(err.message ?? "Failed to add shelter");
     } finally {
       setSubmitting(false);
     }
@@ -306,7 +327,7 @@ export default function SheltersPage() {
                   className="flex items-center justify-center gap-2 px-5 py-3 bg-cobalt hover:bg-cobalt-dark rounded-xl text-white font-bold text-sm transition-colors shadow-sm"
                 >
                   <span className="material-symbols-outlined icon-thick text-[18px]">add</span>
-                  Add Shelter
+                  Add New Shelter
                 </button>
               )}
             </div>
@@ -406,13 +427,13 @@ export default function SheltersPage() {
 
       {/* ─── Add Shelter Drawer ─── */}
       {isDrawerOpen && <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 transition-opacity" onClick={() => setIsDrawerOpen(false)} />}
-      <div className={`fixed inset-y-0 right-0 w-[440px] max-w-[90vw] bg-white border-l border-gray-200 shadow-2xl z-50 transform transition-transform duration-300 ease-[cubic-bezier(0.2,0,0,1)] flex flex-col ${isDrawerOpen ? "translate-x-0" : "translate-x-full"}`}>
+      <div className={`fixed inset-y-0 right-0 w-[480px] max-w-[90vw] bg-white border-l border-gray-200 shadow-2xl z-50 transform transition-transform duration-300 ease-[cubic-bezier(0.2,0,0,1)] flex flex-col ${isDrawerOpen ? "translate-x-0" : "translate-x-full"}`}>
         <div className="flex justify-between items-center p-6 border-b border-gray-200 bg-azure shrink-0">
           <div className="flex items-center gap-3">
             <button className="p-2 rounded-full hover:bg-blue-100 transition-colors text-cobalt" onClick={() => setIsDrawerOpen(false)}>
               <span className="material-symbols-outlined icon-thick">close</span>
             </button>
-            <h3 className="font-display text-xl text-black">Add Shelter</h3>
+            <h3 className="font-display text-xl text-black">Add New Shelter</h3>
           </div>
         </div>
         
@@ -426,13 +447,11 @@ export default function SheltersPage() {
           {submitError && <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-red-600 text-sm font-bold shadow-sm">{submitError}</div>}
           
           {[
-            { key: "shelter_id", label: "Shelter ID *", placeholder: "e.g., S-005" },
-            { key: "shelter_name", label: "Shelter Name *", placeholder: "e.g., Dhaka School Camp" },
+            { key: "shelter_id", label: "Shelter ID *", placeholder: "e.g., SH007" },
+            { key: "shelter_name", label: "Shelter Name *", placeholder: "e.g., Dhaka Central Emergency Shelter" },
+            { key: "address_line", label: "Location / Address", placeholder: "e.g., Mirpur, Dhaka", list: "locations-list" },
             { key: "capacity", label: "Capacity *", placeholder: "e.g., 500", type: "number" },
-            { key: "contact_person_name", label: "Contact Person Name", placeholder: "Name" },
-            { key: "address_line", label: "Address", placeholder: "Full address", list: "locations-list" },
-            { key: "latitude", label: "Latitude (for map)", placeholder: "e.g., 23.8103" },
-            { key: "longitude", label: "Longitude (for map)", placeholder: "e.g., 90.4125" },
+            { key: "contact_person_name", label: "Manager Name", placeholder: "e.g., Rafiqul Islam" },
           ].map(({ key, label, placeholder, type, list }) => (
             <div key={key}>
               <label className="block font-mono text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">{label}</label>
@@ -442,19 +461,34 @@ export default function SheltersPage() {
             </div>
           ))}
 
+          <div>
+            <label className="block font-mono text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Status</label>
+            <select value={form.shelter_status} onChange={(e) => setField("shelter_status", e.target.value)}
+              className="w-full bg-gray-50 border border-gray-200 focus:border-cobalt focus:ring-2 focus:ring-azure rounded-xl px-4 py-3 text-sm font-medium text-black outline-none transition-all">
+              <option value="Open">Open</option>
+              <option value="Full">Full</option>
+              <option value="Closed">Closed</option>
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block font-mono text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Latitude (Optional)</label>
+              <input type="text" placeholder="e.g., 23.8103" value={form.latitude} onChange={(e) => setField("latitude", e.target.value)}
+                className="w-full bg-gray-50 border border-gray-200 focus:border-cobalt focus:ring-2 focus:ring-azure rounded-xl px-4 py-3 text-sm font-medium text-black placeholder:text-gray-400 outline-none transition-all" />
+            </div>
+            <div>
+              <label className="block font-mono text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Longitude (Optional)</label>
+              <input type="text" placeholder="e.g., 90.4125" value={form.longitude} onChange={(e) => setField("longitude", e.target.value)}
+                className="w-full bg-gray-50 border border-gray-200 focus:border-cobalt focus:ring-2 focus:ring-azure rounded-xl px-4 py-3 text-sm font-medium text-black placeholder:text-gray-400 outline-none transition-all" />
+            </div>
+          </div>
+
           <datalist id="locations-list">
             {locations.map((loc, idx) => (
               <option key={idx} value={loc} />
             ))}
           </datalist>
-          
-          <div>
-            <label className="block font-mono text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Shelter Status</label>
-            <select value={form.shelter_status} onChange={(e) => setField("shelter_status", e.target.value)}
-              className="w-full bg-gray-50 border border-gray-200 focus:border-cobalt focus:ring-2 focus:ring-azure rounded-xl px-4 py-3 text-sm font-medium text-black outline-none transition-all">
-              <option>Open</option><option>Full</option><option>Closed</option>
-            </select>
-          </div>
         </div>
         
         <div className="p-6 border-t border-gray-200 bg-gray-50 flex shrink-0">
@@ -464,7 +498,7 @@ export default function SheltersPage() {
             className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-sm bg-cobalt hover:bg-cobalt-dark text-white transition-colors shadow-sm disabled:opacity-50"
           >
             {submitting ? <span className="material-symbols-outlined icon-thick animate-spin">progress_activity</span> : <span className="material-symbols-outlined icon-thick">save</span>}
-            {submitting ? "Saving..." : "Add Shelter"}
+            {submitting ? "Saving..." : "Add New Shelter"}
           </button>
         </div>
       </div>

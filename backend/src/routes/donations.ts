@@ -53,7 +53,7 @@ router.post('/', requireRole(['admin', 'staff']), async (req, res) => {
 // PUT /api/donations/:id
 router.put('/:id', requireRole(['admin', 'staff']), async (req, res) => {
   const { contact_info, amount_or_value, donation_date, donation_type } = req.body;
-  const donation_id = req.params.id;
+  const donation_id = String(req.params.id);
 
   try {
     await query(
