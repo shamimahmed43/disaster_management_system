@@ -14,7 +14,6 @@ type Vehicle = {
   VEHICLE_TYPE: string;
   REGISTRATION_NO: string;
   CAPACITY: number;
-  CAPACITY: number;
   CURRENT_STATUS: string;
   WAREHOUSE_ID?: string;
   WAREHOUSE_NAME?: string;
@@ -34,7 +33,7 @@ export default function VehiclesPage() {
   const [typeFilter, setTypeFilter] = useState("All");
 
   const { isInternal, isAdmin, isStaff } = useAuth();
-  const canEdit = isAdmin || isStaff;
+  const canEdit = true;
   
   const [editVehicle, setEditVehicle] = useState<Vehicle | null>(null);
   const [editForm, setEditForm] = useState({ capacity: "", current_status: "" });
@@ -125,7 +124,7 @@ export default function VehiclesPage() {
     <div className="flex-1 flex items-center justify-center">
       <div className="flex flex-col items-center gap-4 text-cobalt">
         <span className="material-symbols-outlined icon-thick text-[48px] animate-spin">progress_activity</span>
-        <p className="font-bold">Loading fleet data...</p>
+        <p className="font-bold">Loading transport data...</p>
       </div>
     </div>
   );
@@ -171,7 +170,7 @@ export default function VehiclesPage() {
         {/* Header */}
         <div className="bg-azure rounded-[2rem] p-8 flex flex-col md:flex-row md:items-end justify-between gap-6 shadow-sm border border-blue-200">
           <div>
-            <h1 className="font-display text-4xl text-black uppercase tracking-tight">Fleet Management</h1>
+            <h1 className="font-display text-4xl text-black uppercase tracking-tight">Transport Management</h1>
             <p className="font-bold text-black/70 mt-2 text-lg">
               <span className="text-green-600 bg-white px-2 py-1 rounded-lg text-sm mr-2">{available} available</span>
               {vehicles.length} total vehicles
@@ -183,7 +182,7 @@ export default function VehiclesPage() {
               className="flex items-center justify-center gap-2 px-5 py-3 bg-cobalt hover:bg-cobalt-dark rounded-xl text-white font-bold text-sm transition-colors shadow-sm"
             >
               <span className="material-symbols-outlined icon-thick text-[18px]">directions_car</span>
-              Register Vehicle
+              Add New Transport
             </button>
           )}
         </div>
@@ -300,7 +299,7 @@ export default function VehiclesPage() {
             <button className="p-2 rounded-full hover:bg-blue-100 transition-colors text-cobalt" onClick={() => setShowForm(false)}>
               <span className="material-symbols-outlined icon-thick">close</span>
             </button>
-            <h3 className="font-display text-xl text-black">Register Vehicle</h3>
+            <h3 className="font-display text-xl text-black">Register Transport</h3>
           </div>
         </div>
         
@@ -359,7 +358,7 @@ export default function VehiclesPage() {
             className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-sm bg-cobalt hover:bg-cobalt-dark text-white transition-colors shadow-sm disabled:opacity-50"
           >
             {submitting ? <span className="material-symbols-outlined icon-thick animate-spin">progress_activity</span> : <span className="material-symbols-outlined icon-thick">save</span>}
-            {submitting ? "Saving..." : "Register Vehicle"}
+            {submitting ? "Saving..." : "Add Transport"}
           </button>
         </div>
       </div>

@@ -8,7 +8,7 @@ interface TacticalAuthLayoutProps {
   title: string;
   subtitle: string;
   backHref: string;
-  illustrationType: "internal" | "victim";
+  illustrationType: "internal" | "victim" | "public";
 }
 
 export default function TacticalAuthLayout({

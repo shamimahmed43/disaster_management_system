@@ -2,30 +2,42 @@
 
 import { useState } from "react";
 import { useApi } from "@/hooks/useApi";
-import { getVolunteers, createPersonnel } from "@/services/api";
+import { getMedicalStaff, createPersonnel } from "@/services/api";
 import { toast } from "react-hot-toast";
 
-type Volunteer = {
+type MedicalStaff = {
   PERSON_ID: string;
   NAME: string;
   PHONE: string;
   DESIGNATION: string;
   BASE_LOCATION: string;
-  TEAM: string;
+  SPECIALIZATION: string;
+  SINCE_DATE?: string;
 };
 
 const EMPTY_FORM = {
   person_id: "",
   name: "",
   phone: "",
-  designation: "Volunteer",
+  designation: "Medical Staff",
   base_location: "",
-  team: "General",
+  specialization: "General Practice",
+  since_date: new Date().toISOString().split("T")[0],
 };
 
-export default function VolunteersPage() {
-  const { data, loading, error, refetch } = useApi<Volunteer[]>(getVolunteers as any);
-  const volunteers = data ?? [];
+function formatDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("en-BD", {
+    timeZone: "Asia/Dhaka",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+export default function MedicalStaffPage() {
+  const { data, loading, error, refetch } = useApi<MedicalStaff[]>(getMedicalStaff as any);
+  const medicalStaff = data ?? [];
 
   const [showDrawer, setShowDrawer] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -33,7 +45,9 @@ export default function VolunteersPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
-  const teams = Array.from(new Set(volunteers.map((v) => v.TEAM).filter(Boolean)));
+  const specializations = Array.from(
+    new Set(medicalStaff.map((m) => m.SPECIALIZATION).filter(Boolean))
+  );
 
   const setField = (k: string, v: string) => setForm((p) => ({ ...p, [k]: v }));
 
@@ -47,10 +61,10 @@ export default function VolunteersPage() {
     try {
       await createPersonnel({
         ...form,
-        type: "volunteer",
+        type: "medical",
       });
       setSubmitSuccess(true);
-      toast.success("Volunteer registered successfully!");
+      toast.success("Medical Staff registered successfully");
       refetch();
       setTimeout(() => {
         setShowDrawer(false);
@@ -58,7 +72,7 @@ export default function VolunteersPage() {
         setForm(EMPTY_FORM);
       }, 1200);
     } catch (err: any) {
-      setSubmitError(err.message || "Failed to register volunteer.");
+      setSubmitError(err.message || "Failed to register medical staff");
       toast.error(err.message || "Registration failed");
     } finally {
       setSubmitting(false);
@@ -69,7 +83,7 @@ export default function VolunteersPage() {
     <div className="flex-1 flex items-center justify-center">
       <div className="flex flex-col items-center gap-4 text-cobalt">
         <span className="material-symbols-outlined icon-thick text-[48px] animate-spin">progress_activity</span>
-        <p className="font-bold">Loading volunteers...</p>
+        <p className="font-bold">Loading medical staff data...</p>
       </div>
     </div>
   );
@@ -91,9 +105,9 @@ export default function VolunteersPage() {
         {/* Header */}
         <div className="bg-azure rounded-[2rem] p-8 flex flex-col md:flex-row md:items-end justify-between gap-6 shadow-sm border border-blue-200">
           <div>
-            <h1 className="font-display text-4xl text-black uppercase tracking-tight">Volunteers</h1>
+            <h1 className="font-display text-4xl text-black uppercase tracking-tight">Medical Staff</h1>
             <p className="font-bold text-black/70 mt-2 text-lg">
-              {volunteers.length} volunteers across {teams.length || 1} teams
+              {medicalStaff.length} medical personnel across {specializations.length || 1} specializations
             </p>
           </div>
           <button
@@ -105,40 +119,40 @@ export default function VolunteersPage() {
             }}
             className="flex items-center justify-center gap-2 px-5 py-3 bg-cobalt hover:bg-cobalt-dark rounded-xl text-white font-bold text-sm transition-colors shadow-sm"
           >
-            <span className="material-symbols-outlined icon-thick text-[18px]">person_add</span>
-            + Register Volunteer
+            <span className="material-symbols-outlined icon-thick text-[18px]">add</span>
+            + Add New Medical Staff
           </button>
         </div>
 
-        {/* Teams Summary Cards */}
-        {teams.length > 0 && (
+        {/* Specialization Summary Cards */}
+        {specializations.length > 0 && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {teams.map((team) => {
-              const count = volunteers.filter((v) => v.TEAM === team).length;
+            {specializations.map((spec) => {
+              const count = medicalStaff.filter((m) => m.SPECIALIZATION === spec).length;
               return (
-                <div key={team} className="bg-white border border-gray-200 rounded-[2rem] p-6 shadow-sm">
+                <div key={spec} className="bg-white border border-gray-200 rounded-[2rem] p-6 shadow-sm">
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="material-symbols-outlined icon-thick text-[20px] text-cobalt">groups</span>
-                    <span className="font-mono text-xs font-bold text-gray-500 uppercase tracking-wider">{team}</span>
+                    <span className="material-symbols-outlined icon-thick text-[20px] text-cobalt">medical_services</span>
+                    <span className="font-mono text-xs font-bold text-gray-500 uppercase tracking-wider">{spec}</span>
                   </div>
                   <div className="font-display text-4xl text-black">{count}</div>
-                  <div className="text-xs font-bold text-gray-400 mt-1">members</div>
+                  <div className="text-xs font-bold text-gray-400 mt-1">practitioners</div>
                 </div>
               );
             })}
           </div>
         )}
 
-        {/* Volunteers Table */}
+        {/* Medical Staff Table */}
         <div className="bg-white border border-gray-200 rounded-[2rem] overflow-hidden shadow-sm flex flex-col min-h-[400px]">
           <div className="p-6 border-b border-gray-100 bg-gray-50/50">
-            <h2 className="font-display text-2xl text-black">Volunteer Directory</h2>
+            <h2 className="font-display text-2xl text-black">Medical Personnel Directory</h2>
           </div>
           <div className="overflow-x-auto p-2">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr>
-                  {["ID", "Name", "Team", "Phone", "Base Location", "Designation"].map((h) => (
+                  {["ID", "Name", "Specialization", "Designation", "Phone", "Base Location", "Since Date"].map((h) => (
                     <th key={h} className="p-4 font-mono text-xs text-gray-500 uppercase tracking-wider font-bold bg-azure border-b border-gray-200 first:rounded-tl-xl last:rounded-tr-xl">
                       {h}
                     </th>
@@ -146,27 +160,28 @@ export default function VolunteersPage() {
                 </tr>
               </thead>
               <tbody className="text-sm font-medium text-black">
-                {volunteers.length === 0 ? (
+                {medicalStaff.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="p-12 text-center text-gray-500 font-bold">
-                      <span className="material-symbols-outlined icon-thick text-[48px] text-gray-300">groups</span>
-                      <p className="mt-4">No volunteers registered yet.</p>
+                    <td colSpan={7} className="p-12 text-center text-gray-500 font-bold">
+                      <span className="material-symbols-outlined icon-thick text-[48px] text-gray-300">medical_services</span>
+                      <p className="mt-4">No medical staff registered yet.</p>
                     </td>
                   </tr>
                 ) : (
-                  volunteers.map((v) => (
-                    <tr key={v.PERSON_ID} className="hover:bg-azure transition-colors border-b border-gray-100 last:border-none">
-                      <td className="p-4 font-bold text-cobalt">{v.PERSON_ID}</td>
-                      <td className="p-4 font-bold">{v.NAME}</td>
+                  medicalStaff.map((m) => (
+                    <tr key={m.PERSON_ID} className="hover:bg-azure transition-colors border-b border-gray-100 last:border-none">
+                      <td className="p-4 font-bold text-cobalt">{m.PERSON_ID}</td>
+                      <td className="p-4 font-bold">{m.NAME}</td>
                       <td className="p-4">
                         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-blue-50 text-cobalt font-bold text-xs uppercase tracking-wide border border-blue-100">
-                          <span className="material-symbols-outlined icon-thick text-[14px]">groups</span>
-                          {v.TEAM || "General"}
+                          <span className="material-symbols-outlined icon-thick text-[14px]">medical_services</span>
+                          {m.SPECIALIZATION || "General Practice"}
                         </span>
                       </td>
-                      <td className="p-4 font-mono text-gray-600">{v.PHONE || "—"}</td>
-                      <td className="p-4 text-gray-600">{v.BASE_LOCATION || "—"}</td>
-                      <td className="p-4 text-gray-600 font-medium">{v.DESIGNATION || "Volunteer"}</td>
+                      <td className="p-4 font-medium text-gray-700">{m.DESIGNATION || "Medical Staff"}</td>
+                      <td className="p-4 font-mono text-gray-600">{m.PHONE || "—"}</td>
+                      <td className="p-4 text-gray-600">{m.BASE_LOCATION || "—"}</td>
+                      <td className="p-4 font-mono text-xs text-gray-500">{formatDate(m.SINCE_DATE)}</td>
                     </tr>
                   ))
                 )}
@@ -176,7 +191,7 @@ export default function VolunteersPage() {
         </div>
       </div>
 
-      {/* Add Volunteer Drawer */}
+      {/* Add Medical Staff Drawer */}
       {showDrawer && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 transition-opacity" onClick={() => setShowDrawer(false)} />
       )}
@@ -190,7 +205,7 @@ export default function VolunteersPage() {
             <button className="p-2 rounded-full hover:bg-blue-100 transition-colors text-cobalt" onClick={() => setShowDrawer(false)}>
               <span className="material-symbols-outlined icon-thick">close</span>
             </button>
-            <h3 className="font-display text-xl text-black">Register Volunteer</h3>
+            <h3 className="font-display text-xl text-black">Register Medical Staff</h3>
           </div>
         </div>
 
@@ -198,7 +213,7 @@ export default function VolunteersPage() {
           {submitSuccess && (
             <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3 text-green-700 shadow-sm">
               <span className="material-symbols-outlined icon-thick">check_circle</span>
-              <span className="font-bold text-sm">Volunteer registered successfully!</span>
+              <span className="font-bold text-sm">Medical staff registered successfully!</span>
             </div>
           )}
           {submitError && (
@@ -208,17 +223,18 @@ export default function VolunteersPage() {
           )}
 
           {[
-            { key: "person_id", label: "Person ID *", placeholder: "e.g., VOL-001 or PER010" },
-            { key: "name", label: "Full Name *", placeholder: "e.g., Jahangir Alam" },
-            { key: "phone", label: "Phone Number", placeholder: "e.g., 01711000085" },
-            { key: "team", label: "Team / Unit", placeholder: "e.g., Rescue Team A, Logistics, Food Distribution" },
-            { key: "designation", label: "Designation", placeholder: "e.g., Field Lead, Volunteer" },
-            { key: "base_location", label: "Base Location", placeholder: "e.g., Rajshahi, Dhaka" },
-          ].map(({ key, label, placeholder }) => (
+            { key: "person_id", label: "Person ID *", placeholder: "e.g., MED-001" },
+            { key: "name", label: "Full Name *", placeholder: "e.g., Dr. Ariful Islam" },
+            { key: "phone", label: "Phone Number", placeholder: "e.g., 01711000005" },
+            { key: "designation", label: "Designation", placeholder: "e.g., Senior Medical Officer" },
+            { key: "specialization", label: "Specialization", placeholder: "e.g., Emergency Medicine, Trauma, Surgery" },
+            { key: "base_location", label: "Base Location", placeholder: "e.g., Dhaka" },
+            { key: "since_date", label: "Service Since Date", type: "date" },
+          ].map(({ key, label, placeholder, type }) => (
             <div key={key}>
               <label className="block font-mono text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">{label}</label>
               <input
-                type="text"
+                type={type || "text"}
                 placeholder={placeholder}
                 value={(form as any)[key]}
                 onChange={(e) => setField(key, e.target.value)}
@@ -239,7 +255,7 @@ export default function VolunteersPage() {
             ) : (
               <span className="material-symbols-outlined icon-thick">save</span>
             )}
-            {submitting ? "Saving..." : "Register Volunteer"}
+            {submitting ? "Saving..." : "Add Medical Staff"}
           </button>
         </div>
       </div>

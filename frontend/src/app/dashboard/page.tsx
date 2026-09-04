@@ -7,7 +7,10 @@ import { getDashboardData } from "@/services/api";
 
 // Quick actions are static UI config, not from DB
 const QUICK_ACTIONS = [
-  { id: 4, title: "Public View", icon: "public", href: "/view/dashboard" },
+  { id: 1, title: "New Incident", icon: "add", href: "/disasters/new" },
+  { id: 2, title: "Register Victim", icon: "person_add", href: "/victims" },
+  { id: 3, title: "Add Shelter", icon: "home_work", href: "/shelters" },
+  { id: 4, title: "New Distribution", icon: "local_shipping", href: "/relief" },
 ];
 
 type DashboardData = {

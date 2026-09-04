@@ -123,8 +123,8 @@ export default function ReliefPage() {
   };
 
   async function handleSubmit() {
-    if (!form.distribution_id || !form.warehouse_id || !form.person_id || !form.shelter_id || !form.quantity) {
-      setSubmitError("Distribution ID, Warehouse, Personnel, Shelter, and Quantity are required.");
+    if (!form.distribution_id || !form.warehouse_id || !form.person_id || !form.quantity) {
+      setSubmitError("Distribution ID, Warehouse, Personnel, and Quantity are required.");
       return;
     }
     setSubmitting(true);
@@ -134,10 +134,8 @@ export default function ReliefPage() {
         distribution_id: form.distribution_id,
         warehouse_id: form.warehouse_id,
         person_id: form.person_id,
-        shelter_id: form.shelter_id,
         distribution_date: form.distribution_date,
         quantity: parseInt(form.quantity),
-        vehicle_id: form.vehicle_id || null,
       });
       setSubmitSuccess(true);
       refetch();
@@ -165,18 +163,17 @@ export default function ReliefPage() {
               onClick={openAdd}
               className="flex items-center justify-center gap-2 px-5 py-3 bg-cobalt hover:bg-cobalt-dark rounded-xl text-white font-bold text-sm transition-colors shadow-sm"
             >
-              <span className="material-symbols-outlined icon-thick text-[18px]">local_shipping</span>
-              New Distribution
+              <span className="material-symbols-outlined icon-thick text-[18px]">add</span>
+              + New Relief Distribution
             </button>
           )}
         </div>
 
         {/* Summary KPIs */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {[
             { label: "Total Distributions", value: distributions.length, icon: "local_shipping", color: "text-black" },
             { label: "Total Quantity", value: totalQty.toLocaleString(), icon: "inventory_2", color: "text-cobalt" },
-            { label: "Vehicle Deployments", value: distributions.filter((d) => d.VEHICLE_ID).length, icon: "directions_car", color: "text-green-600" },
           ].map((item) => (
             <div key={item.label} className="bg-white border border-gray-200 rounded-[2rem] p-6 flex justify-between items-center shadow-sm">
               <div>
@@ -363,7 +360,6 @@ export default function ReliefPage() {
         
         <div className="p-6 border-t border-gray-200 bg-gray-50 flex shrink-0">
           <button 
-            variant="primary" 
             onClick={handleSubmit} 
             disabled={submitting} 
             className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-sm bg-cobalt hover:bg-cobalt-dark text-white transition-colors shadow-sm disabled:opacity-50"

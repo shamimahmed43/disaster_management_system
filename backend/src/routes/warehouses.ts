@@ -34,15 +34,31 @@ router.post('/', requireRole(['admin', 'staff']), async (req, res) => {
     return res.status(422).json({ error: 'Missing required fields' });
   }
   try {
-    await query(
-      `INSERT INTO WAREHOUSE (warehouse_id, warehouse_name, location, capacity, manager_name)
-       VALUES (:warehouse_id, :warehouse_name, :location, :capacity, :manager_name)`,
-      [warehouse_id, warehouse_name, location, capacity, manager_name || null]
-    );
+    try {
+      await query(
+        `INSERT INTO WAREHOUSE (warehouse_id, warehouse_name, location, capacity, manager_name, status)
+         VALUES (:warehouse_id, :warehouse_name, :location, :capacity, :manager_name, 'Active')`,
+        [warehouse_id, warehouse_name, location, capacity, manager_name || null]
+      );
+    } catch (err: any) {
+      if (err.message && err.message.includes('ORA-00904')) {
+        await query(
+          `INSERT INTO WAREHOUSE (warehouse_id, warehouse_name, location, capacity, manager_name)
+           VALUES (:warehouse_id, :warehouse_name, :location, :capacity, :manager_name)`,
+          [warehouse_id, warehouse_name, location, capacity, manager_name || null]
+        );
+      } else {
+        throw err;
+      }
+    }
     res.status(201).json({ message: 'Warehouse created', warehouse_id });
   } catch (err: any) {
-    if (err.errorNum === 1) return res.status(409).json({ error: 'Warehouse ID already exists' });
-    res.status(500).json({ error: 'Failed to create warehouse' });
+    console.error('[Warehouses] POST error:', err);
+    if (err.errorNum === 1 || (err.message && err.message.includes('ORA-00001'))) {
+      return res.status(409).json({ error: 'Warehouse ID already exists' });
+    }
+    const msg = process.env.NODE_ENV === 'development' ? err.message : (err.message || 'Failed to create warehouse');
+    res.status(500).json({ error: msg });
   }
 });
 

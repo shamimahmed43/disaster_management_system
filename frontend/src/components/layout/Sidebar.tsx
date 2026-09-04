@@ -38,7 +38,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: "/warehouse", label: "Warehouses", icon: "warehouse" },
       { href: "/relief", label: "Relief Dist.", icon: "local_shipping" },
-      { href: "/vehicles", label: "Fleet", icon: "directions_car" },
+      { href: "/vehicles", label: "Transport Management", icon: "directions_car" },
       { href: "/donations", label: "Donations", icon: "volunteer_activism" },
     ],
   },
@@ -47,6 +47,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: "/personnel", label: "Personnel", icon: "badge" },
       { href: "/volunteers", label: "Volunteers", icon: "groups" },
+      { href: "/medical", label: "Medical Staff", icon: "medical_services" },
     ],
   },
   {

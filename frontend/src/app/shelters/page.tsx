@@ -85,7 +85,8 @@ export default function SheltersPage() {
     setEditForm({
       shelter_status: s.SHELTER_STATUS,
       contact_person_name: s.CONTACT_PERSON_NAME || "",
-      capacity: String(s.CAPACITY || "")
+      capacity: String(s.CAPACITY || ""),
+      address_line: s.ADDRESS_LINE || ""
     });
   }
 
@@ -304,8 +305,8 @@ export default function SheltersPage() {
                   onClick={() => { setForm({ shelter_id: "", shelter_name: "", capacity: "", shelter_status: "Open", contact_person_name: "", address_line: "", latitude: "", longitude: "" }); setSubmitError(null); setSubmitSuccess(false); setIsDrawerOpen(true); }}
                   className="flex items-center justify-center gap-2 px-5 py-3 bg-cobalt hover:bg-cobalt-dark rounded-xl text-white font-bold text-sm transition-colors shadow-sm"
                 >
-                  <span className="material-symbols-outlined icon-thick text-[18px]">add_location_alt</span>
-                  New Registration
+                  <span className="material-symbols-outlined icon-thick text-[18px]">add</span>
+                  + New Shelter
                 </button>
               )}
             </div>

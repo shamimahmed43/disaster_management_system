@@ -280,17 +280,26 @@ export default function VictimsPage() {
 
   return (
     <>
-      <div className="max-w-[1600px] mx-auto flex flex-col gap-4">
+      <div className="max-w-[1600px] mx-auto flex flex-col gap-4 pb-12">
         {/* Header */}
         <div className="bg-azure rounded-[2rem] p-8 flex flex-col md:flex-row md:items-end justify-between gap-6 shadow-sm border border-blue-200">
-          <div>
-            <h2 className="font-display text-4xl text-black uppercase tracking-tight">Victim Registry</h2>
-            <p className="font-bold text-black/70 mt-2 text-lg">
-              {victims.length} total records
-              {missingCount > 0 && (
-                <span className="ml-2 text-red-500 bg-red-100 px-2 py-1 rounded-lg text-sm">· {missingCount} missing</span>
-              )}
-            </p>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => window.history.back()}
+              className="p-3 bg-white hover:bg-blue-50 text-cobalt rounded-xl border border-blue-200 transition-colors flex items-center justify-center shrink-0 shadow-sm"
+              title="Go Back"
+            >
+              <span className="material-symbols-outlined icon-thick text-[20px]">arrow_back</span>
+            </button>
+            <div>
+              <h2 className="font-display text-4xl text-black uppercase tracking-tight">Victim Registry</h2>
+              <p className="font-bold text-black/70 mt-2 text-lg">
+                {victims.length} total records
+                {missingCount > 0 && (
+                  <span className="ml-2 text-red-500 bg-red-100 px-2 py-1 rounded-lg text-sm">· {missingCount} missing</span>
+                )}
+              </p>
+            </div>
           </div>
           {canEdit && (
             <button onClick={openAdd} className="flex items-center justify-center gap-2 px-5 py-3 bg-cobalt hover:bg-cobalt-dark rounded-xl text-white font-bold text-sm transition-colors shadow-sm">

@@ -8,9 +8,10 @@ const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 export type AuthUser = {
   user_id: string;
   email: string;
-  role: "admin" | "staff" | "volunteer" | "medical_staff";
+  role: "admin" | "staff" | "volunteer" | "medical_staff" | "victim" | "pending";
   name: string;
   person_id?: string;
+  victim_id?: string;
   token?: string;
 };
 
