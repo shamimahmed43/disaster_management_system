@@ -41,9 +41,14 @@ export default function ReliefPage() {
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [form, setForm] = useState({
-    distribution_id: "", warehouse_id: "", person_id: "", shelter_id: "",
+    distribution_id: "",
+    warehouse_id: "",
+    person_id: "",
+    shelter_id: "",
+    vehicle_id: "",
     distribution_date: new Date().toISOString().split("T")[0],
-    quantity: "", status: "Completed",
+    quantity: "",
+    status: "Completed",
   });
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -116,32 +121,65 @@ export default function ReliefPage() {
   const setField = (k: string, v: string) => setForm((p) => ({ ...p, [k]: v }));
 
   const openAdd = () => {
-    setForm({ distribution_id: "", warehouse_id: "", person_id: "", shelter_id: "", distribution_date: new Date().toISOString().split("T")[0], quantity: "", status: "Completed" });
+    setForm({
+      distribution_id: "",
+      warehouse_id: "",
+      person_id: "",
+      shelter_id: "",
+      vehicle_id: "",
+      distribution_date: new Date().toISOString().split("T")[0],
+      quantity: "",
+      status: "Completed"
+    });
     setSubmitError(null);
     setSubmitSuccess(false);
     setIsDrawerOpen(true);
   };
 
   async function handleSubmit() {
-    if (!form.distribution_id || !form.warehouse_id || !form.person_id || !form.quantity) {
+    if (!form.distribution_id.trim() || !form.warehouse_id || !form.person_id || !form.quantity) {
       setSubmitError("Distribution ID, Warehouse, Personnel, and Quantity are required.");
+      return;
+    }
+    const qtyNum = parseInt(form.quantity);
+    if (isNaN(qtyNum) || qtyNum <= 0) {
+      setSubmitError("Quantity must be a positive number.");
       return;
     }
     setSubmitting(true);
     setSubmitError(null);
     try {
       await createDistribution({
-        distribution_id: form.distribution_id,
+        distribution_id: form.distribution_id.trim(),
         warehouse_id: form.warehouse_id,
         person_id: form.person_id,
+        shelter_id: form.shelter_id || null,
+        vehicle_id: form.vehicle_id || null,
         distribution_date: form.distribution_date,
-        quantity: parseInt(form.quantity),
+        quantity: qtyNum,
+        status: form.status || "Completed"
       });
       setSubmitSuccess(true);
+      toast.success("Distribution recorded successfully!");
       refetch();
-      setTimeout(() => setIsDrawerOpen(false), 1500);
+      setTimeout(() => {
+        setIsDrawerOpen(false);
+        setSubmitSuccess(false);
+        setForm({
+          distribution_id: "",
+          warehouse_id: "",
+          person_id: "",
+          shelter_id: "",
+          vehicle_id: "",
+          distribution_date: new Date().toISOString().split("T")[0],
+          quantity: "",
+          status: "Completed"
+        });
+      }, 1500);
     } catch (err: any) {
-      setSubmitError(err.message ?? "Failed to create distribution");
+      const errMsg = err.message ?? "Failed to create distribution";
+      setSubmitError(errMsg);
+      toast.error(errMsg);
     } finally {
       setSubmitting(false);
     }
@@ -158,15 +196,13 @@ export default function ReliefPage() {
               {distributions.length} records · Total distributed: <span className="text-cobalt">{totalQty.toLocaleString()}</span> units
             </p>
           </div>
-          {canEdit && (
-            <button
-              onClick={openAdd}
-              className="flex items-center justify-center gap-2 px-5 py-3 bg-cobalt hover:bg-cobalt-dark rounded-xl text-white font-bold text-sm transition-colors shadow-sm"
-            >
-              <span className="material-symbols-outlined icon-thick text-[18px]">add</span>
-              Add Relief Distribution
-            </button>
-          )}
+          <button
+            onClick={openAdd}
+            className="flex items-center justify-center gap-2 px-5 py-3 bg-cobalt hover:bg-cobalt-dark rounded-xl text-white font-bold text-sm transition-colors shadow-sm"
+          >
+            <span className="material-symbols-outlined icon-thick text-[18px]">add</span>
+            + Add Distribution
+          </button>
         </div>
 
         {/* Summary KPIs */}
@@ -187,11 +223,20 @@ export default function ReliefPage() {
 
         {/* Distribution Table */}
         <div className="bg-white border border-gray-200 rounded-[2rem] overflow-hidden shadow-sm flex flex-col min-h-[400px]">
-          <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+          <div className="p-6 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gray-50/50">
             <h2 className="font-display text-2xl text-black">Distribution Log</h2>
-            <span className="font-mono text-xs font-bold text-cobalt uppercase tracking-wider bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
-              Warehouse ↔ Personnel
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-xs font-bold text-cobalt uppercase tracking-wider bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
+                Warehouse ↔ Personnel
+              </span>
+              <button
+                onClick={openAdd}
+                className="flex items-center justify-center gap-2 px-4 py-2 bg-cobalt hover:bg-cobalt-dark rounded-xl text-white font-bold text-sm transition-colors shadow-sm"
+              >
+                <span className="material-symbols-outlined icon-thick text-[18px]">add</span>
+                + Add Distribution
+              </button>
+            </div>
           </div>
           <div className="overflow-x-auto p-2">
             <table className="w-full text-left border-collapse">
@@ -289,7 +334,7 @@ export default function ReliefPage() {
             <button className="p-2 rounded-full hover:bg-blue-100 transition-colors text-cobalt" onClick={() => setIsDrawerOpen(false)}>
               <span className="material-symbols-outlined icon-thick">close</span>
             </button>
-            <h3 className="font-display text-xl text-black">Add Relief Distribution</h3>
+            <h3 className="font-display text-xl text-black">Add Distribution</h3>
           </div>
         </div>
         
@@ -304,7 +349,7 @@ export default function ReliefPage() {
 
           <div>
             <label className="block font-mono text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Distribution ID *</label>
-            <input type="text" placeholder="e.g., DIST-004" value={form.distribution_id} onChange={(e) => setField("distribution_id", e.target.value)}
+            <input type="text" placeholder="e.g., DIST007" value={form.distribution_id} onChange={(e) => setField("distribution_id", e.target.value)}
               className="w-full bg-gray-50 border border-gray-200 focus:border-cobalt focus:ring-2 focus:ring-azure rounded-xl px-4 py-3 text-sm font-medium text-black placeholder:text-gray-400 outline-none transition-all" />
           </div>
           
@@ -326,11 +371,23 @@ export default function ReliefPage() {
               </select>
             </div>
             <div>
-              <label className="block font-mono text-xs font-bold text-cobalt uppercase tracking-wider mb-2">Target Shelter *</label>
+              <label className="block font-mono text-xs font-bold text-cobalt uppercase tracking-wider mb-2">Target Shelter</label>
               <select value={form.shelter_id} onChange={(e) => setField("shelter_id", e.target.value)}
                 className="w-full bg-white border border-blue-200 focus:border-cobalt focus:ring-2 focus:ring-azure rounded-xl px-4 py-3 text-sm font-medium text-black outline-none transition-all">
-                <option value="">-- Select Shelter --</option>
+                <option value="">-- Select Shelter (Optional) --</option>
                 {(shelters ?? []).map((s: any) => <option key={s.SHELTER_ID} value={s.SHELTER_ID}>{s.SHELTER_NAME} ({s.SHELTER_ID})</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block font-mono text-xs font-bold text-cobalt uppercase tracking-wider mb-2">Vehicle (Optional)</label>
+              <select value={form.vehicle_id} onChange={(e) => setField("vehicle_id", e.target.value)}
+                className="w-full bg-white border border-blue-200 focus:border-cobalt focus:ring-2 focus:ring-azure rounded-xl px-4 py-3 text-sm font-medium text-black outline-none transition-all">
+                <option value="">-- Select Vehicle (Optional) --</option>
+                {(vehicles ?? []).map((v: any) => (
+                  <option key={v.VEHICLE_ID} value={v.VEHICLE_ID}>
+                    {v.VEHICLE_TYPE} ({v.REGISTRATION_NO})
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -367,7 +424,7 @@ export default function ReliefPage() {
             className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-sm bg-cobalt hover:bg-cobalt-dark text-white transition-colors shadow-sm disabled:opacity-50"
           >
             {submitting ? <span className="material-symbols-outlined icon-thick animate-spin">progress_activity</span> : <span className="material-symbols-outlined icon-thick">save</span>}
-            {submitting ? "Saving..." : "Add Relief Distribution"}
+            {submitting ? "Saving..." : "Add Distribution"}
           </button>
         </div>
       </div>

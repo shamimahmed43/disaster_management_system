@@ -28,7 +28,7 @@ router.get('/victim/:victim_id', requireVictimOwnership, async (req, res) => {
 });
 
 // GET /api/distributions
-router.get('/', requireRole(['admin', 'staff']), async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const rows = await query(`
       SELECT
@@ -56,25 +56,37 @@ router.get('/', requireRole(['admin', 'staff']), async (req, res) => {
 router.post('/', requireRole(['admin', 'staff']), async (req, res) => {
   const { distribution_id, warehouse_id, person_id, distribution_date, quantity } = req.body;
   if (!distribution_id || !warehouse_id || !person_id || !quantity) {
-    return res.status(422).json({ error: 'Missing required fields' });
+    return res.status(422).json({ error: 'Distribution ID, Warehouse, Personnel, and Quantity are required' });
   }
 
-  const distDate = (distribution_date && distribution_date.trim()) ? distribution_date.trim() : new Date().toISOString().slice(0, 10);
+  const id = String(distribution_id).trim();
+  const wId = String(warehouse_id).trim();
+  const pId = String(person_id).trim();
+  const qty = Number(quantity);
+
+  if (isNaN(qty) || qty <= 0) {
+    return res.status(422).json({ error: 'Quantity must be a positive number' });
+  }
+
+  const distDate = (distribution_date && String(distribution_date).trim()) ? String(distribution_date).trim() : new Date().toISOString().slice(0, 10);
 
   try {
     await query(
       `INSERT INTO DISTRIBUTION (distribution_id, warehouse_id, person_id, distribution_date, quantity)
        VALUES (:distribution_id, :warehouse_id, :person_id, TO_DATE(:distribution_date, 'YYYY-MM-DD'), :quantity)`,
-      { distribution_id, warehouse_id, person_id, distribution_date: distDate, quantity }
+      { distribution_id: id, warehouse_id: wId, person_id: pId, distribution_date: distDate, quantity: qty }
     );
 
-    res.status(201).json({ message: 'Distribution recorded', distribution_id });
+    res.status(201).json({ message: 'Distribution recorded successfully', data: { distribution_id: id } });
   } catch (err: any) {
     console.error('[Distributions] POST error:', err);
     if (err.errorNum === 1 || (err.message && err.message.includes('ORA-00001'))) {
-      return res.status(409).json({ error: 'Distribution ID already exists' });
+      return res.status(409).json({ error: `Distribution ID "${id}" already exists.` });
     }
-    const msg = process.env.NODE_ENV === 'development' ? err.message : (err.message || 'Failed to record distribution');
+    if (err.errorNum === 2291 || (err.message && err.message.includes('ORA-02291'))) {
+      return res.status(422).json({ error: 'Selected Warehouse or Personnel is invalid (foreign key not found).' });
+    }
+    const msg = err.message || 'Failed to record distribution';
     res.status(500).json({ error: msg });
   }
 });
