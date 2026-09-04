@@ -229,13 +229,6 @@ export default function ReliefPage() {
               <span className="font-mono text-xs font-bold text-cobalt uppercase tracking-wider bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
                 Warehouse ↔ Personnel
               </span>
-              <button
-                onClick={openAdd}
-                className="flex items-center justify-center gap-2 px-4 py-2 bg-cobalt hover:bg-cobalt-dark rounded-xl text-white font-bold text-sm transition-colors shadow-sm"
-              >
-                <span className="material-symbols-outlined icon-thick text-[18px]">add</span>
-                + Add Distribution
-              </button>
             </div>
           </div>
           <div className="overflow-x-auto p-2">
