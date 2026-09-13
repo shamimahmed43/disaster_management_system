@@ -291,4 +291,52 @@ router.put('/:id/profile', requireVictimOwnership, async (req, res) => {
   }
 });
 
+// DELETE /api/victims/:id/family/:seq
+router.delete('/:id/family/:seq', requireVictimOwnership, async (req, res) => {
+  const victim_id = req.params.id as string;
+  const rawSeq = Array.isArray(req.params.seq) ? req.params.seq[0] : req.params.seq;
+  const seq = parseInt(rawSeq, 10);
+
+  if (isNaN(seq)) {
+    return res.status(422).json({ error: 'Invalid family member sequence number.' });
+  }
+
+  try {
+    await query(
+      `DELETE FROM FAMILY_MEMBER WHERE victim_id = :victim_id AND member_seq_no = :seq`,
+      [victim_id, seq]
+    );
+
+    res.json({ message: 'Family member deleted successfully.' });
+  } catch (err: any) {
+    console.error('[Victims] DELETE /:id/family/:seq error:', err);
+    res.status(500).json({ error: 'Failed to delete family member.' });
+  }
+});
+
+// DELETE /api/victims/:id/phone/:phone
+router.delete('/:id/phone/:phone', requireVictimOwnership, async (req, res) => {
+  const victim_id = req.params.id as string;
+  const rawPhone = Array.isArray(req.params.phone) ? req.params.phone[0] : req.params.phone;
+  const phone = decodeURIComponent(rawPhone).trim();
+
+  if (!phone) {
+    return res.status(422).json({ error: 'Phone number is required.' });
+  }
+
+  try {
+    await query(
+      `DELETE FROM VICTIM_PHONE WHERE victim_id = :victim_id AND phone = :phone`,
+      [victim_id, phone]
+    );
+
+    res.json({ message: 'Emergency contact deleted successfully.' });
+  } catch (err: any) {
+    console.error('[Victims] DELETE /:id/phone/:phone error:', err);
+    res.status(500).json({ error: 'Failed to delete emergency contact.' });
+  }
+});
+
+
 export default router;
+

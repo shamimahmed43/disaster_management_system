@@ -1,7 +1,4 @@
--- ============================================================
--- DMS DEMO DATA - MATCHES ACTUAL ORACLE SCHEMA
--- Run: sqlplus / as sysdba @d:\DBMS_Project\database\demo_data.sql
--- ============================================================
+
 SET ECHO OFF
 SET FEEDBACK OFF
 SET DEFINE OFF
@@ -42,7 +39,6 @@ COMMIT;
 
 -- ─────────────────────────────────────────────────────────────
 -- DISASTER EVENTS: (disaster_name, disaster_type, division, district, start_date, end_date)
--- NOTE: disaster_name is the PK! No disaster_id, no severity, no status
 -- ─────────────────────────────────────────────────────────────
 INSERT INTO DISASTER_EVENT VALUES ('Flash Flood 2026 - Sylhet','Flood','Sylhet','Sylhet Sadar',TO_DATE('2026-07-10','YYYY-MM-DD'),NULL);
 INSERT INTO DISASTER_EVENT VALUES ('Cyclone Sitrang - Barisal','Cyclone','Barisal','Patuakhali',TO_DATE('2026-06-15','YYYY-MM-DD'),TO_DATE('2026-06-25','YYYY-MM-DD'));
@@ -178,7 +174,6 @@ COMMIT;
 
 -- ─────────────────────────────────────────────────────────────
 -- DONATIONS: (donation_id, donor_name, donor_id, contact_info, donation_type, amount_or_value, donation_date, warehouse_id)
--- NOTE: No purpose column in actual schema
 -- ─────────────────────────────────────────────────────────────
 INSERT INTO DONATION VALUES ('DON001','BRAC Bangladesh','BRAC','brac@brac.net','Food',500000,TO_DATE('2026-07-13','YYYY-MM-DD'),'WH001');
 INSERT INTO DONATION VALUES ('DON002','Grameen Bank','GRAMEEN','info@grameen.org','Cash',200000,TO_DATE('2026-07-14','YYYY-MM-DD'),'WH001');
@@ -190,7 +185,6 @@ COMMIT;
 
 -- ─────────────────────────────────────────────────────────────
 -- DISTRIBUTIONS: (distribution_id, warehouse_id, person_id, distribution_date, quantity)
--- NOTE: No shelter_id, vehicle_id, or status in actual schema
 -- ─────────────────────────────────────────────────────────────
 INSERT INTO DISTRIBUTION VALUES ('DIST001','WH001','PER003',TO_DATE('2026-07-13','YYYY-MM-DD'),500);
 INSERT INTO DISTRIBUTION VALUES ('DIST002','WH002','PER004',TO_DATE('2026-06-20','YYYY-MM-DD'),300);
@@ -234,8 +228,6 @@ END;
 
 -- ─────────────────────────────────────────────────────────────
 -- ADMIN USER (password: "Admin@2026")
--- bcrypt hash of "Admin@2026" with cost=10
--- Using literal hash that works with bcryptjs
 -- ─────────────────────────────────────────────────────────────
 INSERT INTO APP_USER (user_id, email, password_hash, full_name, phone, role, is_verified, otp_code, otp_expiry, created_at, victim_id, person_id)
 VALUES (

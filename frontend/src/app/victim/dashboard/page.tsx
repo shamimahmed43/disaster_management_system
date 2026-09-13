@@ -65,6 +65,9 @@ export default function VictimDashboardPage() {
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [isAddFamilyOpen, setIsAddFamilyOpen] = useState(false);
   const [isAddContactOpen, setIsAddContactOpen] = useState(false);
+  const [deleteFamilyTarget, setDeleteFamilyTarget] = useState<{ seq: number; name: string } | null>(null);
+  const [deleteContactTarget, setDeleteContactTarget] = useState<{ phone: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Alert/Notification state
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
@@ -264,6 +267,67 @@ export default function VictimDashboardPage() {
     }
   }
 
+  async function confirmDeleteFamily() {
+    if (!victim?.VICTIM_ID || !deleteFamilyTarget) return;
+
+    setIsDeleting(true);
+    const token = localStorage.getItem("dms_token");
+    try {
+      const res = await fetch(`${API}/victims/${victim.VICTIM_ID}/family/${deleteFamilyTarget.seq}`, {
+        method: "DELETE",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: "include",
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        showToast(json.error || "Failed to delete family member", "error");
+        return;
+      }
+
+      showToast("Family member deleted successfully!");
+      setDeleteFamilyTarget(null);
+      await loadVictimData(victim.VICTIM_ID, token);
+    } catch {
+      showToast("An error occurred while deleting family member.", "error");
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
+  async function confirmDeleteContact() {
+    if (!victim?.VICTIM_ID || !deleteContactTarget) return;
+
+    setIsDeleting(true);
+    const token = localStorage.getItem("dms_token");
+    try {
+      const encodedPhone = encodeURIComponent(deleteContactTarget.phone);
+      const res = await fetch(`${API}/victims/${victim.VICTIM_ID}/phone/${encodedPhone}`, {
+        method: "DELETE",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: "include",
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        showToast(json.error || "Failed to delete emergency contact", "error");
+        return;
+      }
+
+      showToast("Emergency contact deleted successfully!");
+      setDeleteContactTarget(null);
+      await loadVictimData(victim.VICTIM_ID, token);
+    } catch {
+      showToast("An error occurred while deleting emergency contact.", "error");
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#061014] text-slate-200 flex flex-col items-center justify-center font-mono">
@@ -333,6 +397,7 @@ export default function VictimDashboardPage() {
                       <th className="py-2.5 px-3">Member Name</th>
                       <th className="py-2.5 px-3">Age</th>
                       <th className="py-2.5 px-3">Relationship</th>
+                      <th className="py-2.5 px-3 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60">
@@ -344,6 +409,15 @@ export default function VictimDashboardPage() {
                           <td className="py-3 px-3 font-medium text-slate-100">{name}</td>
                           <td className="py-3 px-3 font-mono text-slate-300">{age || "—"}</td>
                           <td className="py-3 px-3"><span className="px-2 py-0.5 text-xs font-mono bg-slate-800 border border-slate-700 text-slate-300 rounded">{relation}</span></td>
+                          <td className="py-3 px-3 text-right">
+                            <button
+                              onClick={() => setDeleteFamilyTarget({ seq: m.MEMBER_SEQ_NO, name })}
+                              className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors inline-flex items-center justify-center"
+                              title="Delete Family Member"
+                            >
+                              <span className="material-symbols-outlined text-base">delete</span>
+                            </button>
+                          </td>
                         </tr>
                       );
                     })}
@@ -366,6 +440,7 @@ export default function VictimDashboardPage() {
                       <th className="py-2.5 px-3">#</th>
                       <th className="py-2.5 px-3">Phone Number</th>
                       <th className="py-2.5 px-3">Type</th>
+                      <th className="py-2.5 px-3 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60">
@@ -383,6 +458,17 @@ export default function VictimDashboardPage() {
                           >
                             {idx === 0 ? "Primary Contact" : "Secondary Contact"}
                           </span>
+                        </td>
+                        <td className="py-3 px-3 text-right">
+                          {idx > 0 && (
+                            <button
+                              onClick={() => setDeleteContactTarget({ phone })}
+                              className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors inline-flex items-center justify-center"
+                              title="Delete Emergency Contact"
+                            >
+                              <span className="material-symbols-outlined text-base">delete</span>
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -659,6 +745,99 @@ export default function VictimDashboardPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* MODAL 4: CONFIRM DELETE FAMILY MEMBER */}
+      {deleteFamilyTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-[#0c1921] border border-slate-800 rounded-xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2 text-red-400">
+                <span className="material-symbols-outlined">warning</span>
+                <h3 className="text-lg font-semibold text-white">Delete Family Member</h3>
+              </div>
+              <button
+                onClick={() => setDeleteFamilyTarget(null)}
+                className="text-slate-400 hover:text-white"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <p className="text-sm text-slate-300">
+              Are you sure you want to delete family member <strong className="text-white">{deleteFamilyTarget.name}</strong>? This action cannot be undone.
+            </p>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteFamilyTarget(null)}
+                className="px-4 py-2 text-xs font-mono text-slate-400 hover:text-white bg-slate-800/60 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteFamily}
+                disabled={isDeleting}
+                className="px-4 py-2 text-xs font-mono text-white font-semibold bg-red-500 hover:bg-red-600 disabled:opacity-50 rounded-lg transition-colors flex items-center gap-2"
+              >
+                {isDeleting && (
+                  <span className="material-symbols-outlined text-sm animate-spin">
+                    progress_activity
+                  </span>
+                )}
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 5: CONFIRM DELETE EMERGENCY CONTACT */}
+      {deleteContactTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-[#0c1921] border border-slate-800 rounded-xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2 text-red-400">
+                <span className="material-symbols-outlined">warning</span>
+                <h3 className="text-lg font-semibold text-white">Delete Emergency Contact</h3>
+              </div>
+              <button
+                onClick={() => setDeleteContactTarget(null)}
+                className="text-slate-400 hover:text-white"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <p className="text-sm text-slate-300">
+              Are you sure you want to remove <strong className="font-mono text-white">{deleteContactTarget.phone}</strong> from your emergency contacts? This action cannot be undone.
+            </p>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteContactTarget(null)}
+                className="px-4 py-2 text-xs font-mono text-slate-400 hover:text-white bg-slate-800/60 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteContact}
+                disabled={isDeleting}
+                className="px-4 py-2 text-xs font-mono text-white font-semibold bg-red-500 hover:bg-red-600 disabled:opacity-50 rounded-lg transition-colors flex items-center gap-2"
+              >
+                {isDeleting && (
+                  <span className="material-symbols-outlined text-sm animate-spin">
+                    progress_activity
+                  </span>
+                )}
+                Delete
+              </button>
+            </div>
           </div>
         </div>
       )}
