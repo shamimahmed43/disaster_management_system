@@ -1,21 +1,44 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import TacticalAuthLayout from "@/components/layout/TacticalAuthLayout";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
+type Shelter = {
+  SHELTER_ID: string;
+  SHELTER_NAME: string;
+  ADDRESS_LINE?: string;
+  CAPACITY: number;
+  CURRENT_OCCUPANCY: number;
+  AVAILABLE_CAPACITY: number;
+  SHELTER_STATUS?: string;
+  CURRENT_STATUS?: string;
+};
+
 export default function VictimRegisterPage() {
   const router = useRouter();
   const [form, setForm] = useState({
     name: "", email: "", phone: "", nid: "", dob: "",
-    presentAddress: "", gender: "", password: "", confirmPassword: ""
+    presentAddress: "", gender: "", shelter_id: "", password: "", confirmPassword: ""
   });
+  const [shelters, setShelters] = useState<Shelter[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    fetch(`${API}/shelters`)
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.data && Array.isArray(json.data)) {
+          setShelters(json.data);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -29,7 +52,12 @@ export default function VictimRegisterPage() {
       const res = await fetch(`${API}/auth/victim/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, full_name: form.name, nid_number: form.nid }),
+        body: JSON.stringify({
+          ...form,
+          full_name: form.name,
+          nid_number: form.nid,
+          shelter_id: form.shelter_id || null,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Registration failed.");
@@ -145,6 +173,34 @@ export default function VictimRegisterPage() {
             onChange={(e) => setForm((p) => ({ ...p, presentAddress: e.target.value }))}
             className="w-full glass-input rounded-full px-4 py-2 text-center text-white placeholder-gray-600 font-mono text-xs"
           />
+        </div>
+
+        <div className="space-y-1 text-center mb-3">
+          <div className="flex justify-between items-center px-4">
+            <label className="block text-xs text-gray-400 font-mono tracking-widest uppercase mb-0.5">Emergency Shelter</label>
+            <span className="text-[10px] text-emerald-400 font-mono">OPTIONAL</span>
+          </div>
+          <select
+            value={form.shelter_id}
+            onChange={(e) => setForm((p) => ({ ...p, shelter_id: e.target.value }))}
+            className="w-full glass-input rounded-full px-4 py-2 text-center text-gray-300 font-mono text-xs appearance-none"
+          >
+            <option value="">-- No Shelter (Not Assigned) --</option>
+            {shelters
+              .filter((s) => {
+                const available = s.AVAILABLE_CAPACITY !== undefined ? s.AVAILABLE_CAPACITY : (s.CAPACITY - (s.CURRENT_OCCUPANCY || 0));
+                const status = s.SHELTER_STATUS || s.CURRENT_STATUS || "Open";
+                return available > 0 && status.toLowerCase() !== "full" && status.toLowerCase() !== "closed";
+              })
+              .map((sh) => {
+                const available = sh.AVAILABLE_CAPACITY !== undefined ? sh.AVAILABLE_CAPACITY : (sh.CAPACITY - (sh.CURRENT_OCCUPANCY || 0));
+                return (
+                  <option key={sh.SHELTER_ID} value={sh.SHELTER_ID}>
+                    {sh.SHELTER_NAME} — {sh.ADDRESS_LINE || "Location N/A"} ({available} available)
+                  </option>
+                );
+              })}
+          </select>
         </div>
 
         <div className="grid grid-cols-2 gap-3 mb-4">

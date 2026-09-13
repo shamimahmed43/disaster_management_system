@@ -219,9 +219,9 @@ export default function SheltersPage() {
   };
 
   // Summary from filtered results
-  const totalCapacity = filtered.reduce((sum, s) => sum + (s.CAPACITY || 0), 0);
-  const totalOccupied = filtered.reduce((sum, s) => sum + (s.CURRENT_OCCUPANCY || 0), 0);
-  const totalAvailable = filtered.reduce((sum, s) => sum + (s.AVAILABLE_CAPACITY || 0), 0);
+  const totalCapacity = filtered.reduce((sum, s) => sum + (Number(s.CAPACITY) || 0), 0);
+  const totalOccupied = filtered.reduce((sum, s) => sum + (Number(s.CURRENT_OCCUPANCY) || 0), 0);
+  const totalAvailable = filtered.reduce((sum, s) => sum + (s.AVAILABLE_CAPACITY !== undefined ? Number(s.AVAILABLE_CAPACITY) : Math.max(0, (Number(s.CAPACITY) || 0) - (Number(s.CURRENT_OCCUPANCY) || 0))), 0);
 
   return (
     <>
@@ -349,10 +349,11 @@ export default function SheltersPage() {
           ) : (
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
               {filtered.map((shelter) => {
-                const pct = shelter.CAPACITY > 0
-                  ? Math.round((shelter.CURRENT_OCCUPANCY / shelter.CAPACITY) * 100)
-                  : 0;
-                const isFull = pct >= 100;
+                const currentOcc = Number(shelter.CURRENT_OCCUPANCY || 0);
+                const cap = Number(shelter.CAPACITY || 0);
+                const availCap = shelter.AVAILABLE_CAPACITY !== undefined ? Number(shelter.AVAILABLE_CAPACITY) : Math.max(0, cap - currentOcc);
+                const pct = cap > 0 ? Math.round((currentOcc / cap) * 100) : 0;
+                const isFull = pct >= 100 || availCap <= 0;
                 const barColor = pct >= 90 ? "bg-red-500" : pct >= 70 ? "bg-yellow-500" : "bg-cobalt";
 
                 return (
@@ -400,10 +401,10 @@ export default function SheltersPage() {
                         <span className="font-mono text-xs font-bold text-gray-500 uppercase tracking-wider">Occupancy</span>
                         <span className="font-mono font-bold">
                           <span className={isFull ? "text-red-600" : "text-black text-lg"}>
-                            {shelter.CURRENT_OCCUPANCY}
+                            {currentOcc}
                           </span>
                           <span className="text-gray-400 mx-1">/</span>
-                          <span className="text-gray-600">{shelter.CAPACITY}</span>
+                          <span className="text-gray-600">{cap}</span>
                         </span>
                       </div>
                       <div className="h-3 w-full bg-gray-200 rounded-full overflow-hidden">
@@ -413,7 +414,7 @@ export default function SheltersPage() {
                         />
                       </div>
                       <div className="text-right font-bold text-[10px] uppercase tracking-wider text-gray-500 mt-2">
-                        {pct}% full — <span className={isFull ? "text-red-500" : "text-green-600"}>{shelter.AVAILABLE_CAPACITY} available</span>
+                        {pct}% full — <span className={isFull ? "text-red-500" : "text-green-600"}>{availCap} available</span>
                       </div>
                     </div>
 

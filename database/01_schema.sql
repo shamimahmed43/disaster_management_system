@@ -62,7 +62,9 @@ CREATE TABLE VICTIM (
     last_seen_location    VARCHAR2(255),
     missing_person        CHAR(1) CHECK (missing_person IN ('Y','N')),
     disaster_id           VARCHAR2(50) NOT NULL,
-    FOREIGN KEY (disaster_id) REFERENCES DISASTER_EVENT(disaster_id)
+    shelter_id            VARCHAR2(50),
+    FOREIGN KEY (disaster_id) REFERENCES DISASTER_EVENT(disaster_id),
+    FOREIGN KEY (shelter_id) REFERENCES SHELTER(shelter_id)
 );
 
 -- Table: VICTIM_PHONE

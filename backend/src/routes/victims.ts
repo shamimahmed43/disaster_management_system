@@ -30,10 +30,14 @@ router.get('/', requireRole(['admin', 'staff']), async (req, res) => {
         V.missing_person,
         V.special_needs,
         V.disaster_name,
+        V.shelter_id,
+        S.shelter_name,
+        S.address_line AS shelter_location,
         D.disaster_type,
         D.division
       FROM VICTIM V
       LEFT JOIN DISASTER_EVENT D ON V.disaster_name = D.disaster_name
+      LEFT JOIN SHELTER S ON V.shelter_id = S.shelter_id
       ${whereClause}
       ORDER BY V.reported_date DESC
     `, params);
@@ -47,12 +51,15 @@ router.get('/', requireRole(['admin', 'staff']), async (req, res) => {
 // GET /api/victims/:id
 router.get('/:id', requireVictimOwnership, async (req, res) => {
   try {
-    const [victim] = await query(
+    const [victim] = await query<any>(
       `SELECT V.victim_id, V.household_head_name, V.gender, V.nid_number,
               V.reported_date, V.last_known_location, V.missing_person, V.special_needs, V.disaster_name,
+              V.shelter_id, S.shelter_name, S.address_line AS shelter_location,
+              S.contact_person_name AS shelter_contact, S.contact_person_phone AS shelter_phone,
               D.disaster_type, D.division
        FROM VICTIM V 
        LEFT JOIN DISASTER_EVENT D ON V.disaster_name = D.disaster_name
+       LEFT JOIN SHELTER S ON V.shelter_id = S.shelter_id
        WHERE V.victim_id = :id`,
       [req.params.id]
     );
@@ -89,20 +96,48 @@ router.get('/:id', requireVictimOwnership, async (req, res) => {
 // POST /api/victims
 router.post('/', requireRole(['admin', 'staff']), async (req, res) => {
   const { victim_id, household_head_name, gender, nid_number, reported_date,
-          last_known_location, missing_person, disaster_name, phones, family_members, special_needs } = req.body;
+          last_known_location, missing_person, disaster_name, shelter_id, phones, family_members, special_needs } = req.body;
 
   if (!victim_id || !household_head_name || !disaster_name) {
     return res.status(422).json({ error: 'Missing required fields: victim_id, household_head_name, disaster_name' });
+  }
+
+  const cleanShelterId = (shelter_id && typeof shelter_id === 'string' && shelter_id.trim()) ? shelter_id.trim() : null;
+
+  // Capacity validation if shelter is selected
+  if (cleanShelterId) {
+    try {
+      const shelterRows = await query<any>(
+        `SELECT SH.shelter_id, SH.shelter_name, SH.capacity,
+                (SELECT COUNT(*) FROM RESIDES_IN R WHERE R.shelter_id = SH.shelter_id AND R.checkout_date IS NULL) AS occupied_count
+         FROM SHELTER SH
+         WHERE SH.shelter_id = :shelter_id`,
+        [cleanShelterId]
+      );
+      if (shelterRows.length === 0) {
+        return res.status(422).json({ error: 'Selected shelter does not exist.' });
+      }
+      const shelter = shelterRows[0];
+      const occupied = Number(shelter.OCCUPIED_COUNT || 0);
+      const capacity = Number(shelter.CAPACITY || 0);
+      if (capacity > 0 && occupied >= capacity) {
+        return res.status(422).json({
+          error: `Shelter "${shelter.SHELTER_NAME}" is currently at full capacity (${occupied}/${capacity}). Please select another shelter.`
+        });
+      }
+    } catch (shelterErr: any) {
+      console.error('[Victims] Shelter validation error:', shelterErr);
+    }
   }
 
   const safeDateReported = safeDate(reported_date);
 
   try {
     await query(
-      `INSERT INTO VICTIM (victim_id, household_head_name, gender, nid_number, reported_date, last_known_location, missing_person, special_needs, disaster_name)
+      `INSERT INTO VICTIM (victim_id, household_head_name, gender, nid_number, reported_date, last_known_location, missing_person, special_needs, disaster_name, shelter_id)
        VALUES (:victim_id, :household_head_name, :gender, :nid_number,
          CASE WHEN :reported_date IS NULL THEN SYSDATE ELSE TO_DATE(:reported_date, 'YYYY-MM-DD') END,
-         :last_known_location, :missing_person, :special_needs, :disaster_name)`,
+         :last_known_location, :missing_person, :special_needs, :disaster_name, :shelter_id)`,
       {
         victim_id,
         household_head_name,
@@ -112,9 +147,27 @@ router.post('/', requireRole(['admin', 'staff']), async (req, res) => {
         last_known_location: last_known_location || null,
         missing_person: missing_person || 'N',
         special_needs: null,
-        disaster_name
+        disaster_name,
+        shelter_id: cleanShelterId
       }
     );
+
+    // If shelter assigned, insert into RESIDES_IN
+    if (cleanShelterId) {
+      try {
+        await query(
+          `INSERT INTO RESIDES_IN (victim_id, shelter_id, checkin_date)
+           VALUES (:victim_id, :shelter_id, CASE WHEN :checkin_date IS NULL THEN SYSDATE ELSE TO_DATE(:checkin_date, 'YYYY-MM-DD') END)`,
+          {
+            victim_id,
+            shelter_id: cleanShelterId,
+            checkin_date: safeDateReported
+          }
+        );
+      } catch (residesErr: any) {
+        console.error('[Victims] Failed to insert into RESIDES_IN:', residesErr);
+      }
+    }
 
     // Insert phones
     if (phones && Array.isArray(phones)) {
@@ -140,7 +193,7 @@ router.post('/', requireRole(['admin', 'staff']), async (req, res) => {
       }
     }
 
-    // Insert family members — schema only has (victim_id, member_seq_no, name)
+    // Insert family members
     if (family_members && Array.isArray(family_members)) {
       for (let i = 0; i < family_members.length; i++) {
         const member = family_members[i];
@@ -154,7 +207,7 @@ router.post('/', requireRole(['admin', 'staff']), async (req, res) => {
       }
     }
 
-    res.status(201).json({ message: 'Victim registered', victim_id });
+    res.status(201).json({ message: 'Victim registered', victim_id, shelter_id: cleanShelterId });
   } catch (err: any) {
     if (err.errorNum === 1) return res.status(409).json({ error: 'Victim ID or NID already exists' });
     const msg = process.env.NODE_ENV === 'development' ? err.message : 'Failed to register victim';
@@ -164,19 +217,85 @@ router.post('/', requireRole(['admin', 'staff']), async (req, res) => {
 
 // PUT /api/victims/:id
 router.put('/:id', requireRole(['admin', 'staff']), async (req, res) => {
-  const { missing_person, last_known_location, special_needs } = req.body;
-  const victim_id = req.params.id;
+  const { missing_person, last_known_location, special_needs, shelter_id } = req.body;
+  const victim_id = req.params.id as string;
 
   try {
+    const [currentVictim] = await query<any>(
+      `SELECT victim_id, shelter_id FROM VICTIM WHERE victim_id = :victim_id`,
+      [victim_id]
+    );
+    if (!currentVictim) return res.status(404).json({ error: 'Victim not found.' });
+
+    const currentShelterId = currentVictim.SHELTER_ID || null;
+    let targetShelterId: string | null = null;
+    if (shelter_id && typeof shelter_id === 'string' && shelter_id.trim() && shelter_id.trim() !== 'NONE') {
+      targetShelterId = shelter_id.trim();
+    }
+
+    if (shelter_id !== undefined && targetShelterId !== currentShelterId) {
+      if (targetShelterId) {
+        const shelterRows = await query<any>(
+          `SELECT SH.shelter_id, SH.shelter_name, SH.capacity,
+                  (SELECT COUNT(*) FROM RESIDES_IN R WHERE R.shelter_id = SH.shelter_id AND R.checkout_date IS NULL) AS occupied_count
+           FROM SHELTER SH
+           WHERE SH.shelter_id = :shelter_id`,
+          [targetShelterId]
+        );
+        if (shelterRows.length === 0) {
+          return res.status(422).json({ error: 'Selected shelter does not exist.' });
+        }
+        const targetShelter = shelterRows[0];
+        const occupied = Number(targetShelter.OCCUPIED_COUNT || 0);
+        const capacity = Number(targetShelter.CAPACITY || 0);
+        if (capacity > 0 && occupied >= capacity) {
+          return res.status(422).json({ error: 'Selected shelter has reached maximum capacity.' });
+        }
+
+        if (currentShelterId) {
+          await query(
+            `UPDATE RESIDES_IN
+             SET checkout_date = SYSDATE
+             WHERE victim_id = :victim_id AND checkout_date IS NULL`,
+            [victim_id]
+          );
+        }
+
+        await query(
+          `INSERT INTO RESIDES_IN (victim_id, shelter_id, checkin_date)
+           VALUES (:victim_id, :shelter_id, SYSDATE)`,
+          [victim_id, targetShelterId]
+        );
+      } else {
+        if (currentShelterId) {
+          await query(
+            `UPDATE RESIDES_IN
+             SET checkout_date = SYSDATE
+             WHERE victim_id = :victim_id AND checkout_date IS NULL`,
+            [victim_id]
+          );
+        }
+      }
+    }
+
+    const finalShelterId = shelter_id !== undefined ? targetShelterId : currentShelterId;
+
     await query(
       `UPDATE VICTIM 
        SET missing_person = NVL(:missing_person, missing_person), 
            last_known_location = NVL(:last_known_location, last_known_location),
-           special_needs = NVL(:special_needs, special_needs)
+           special_needs = NVL(:special_needs, special_needs),
+           shelter_id = :shelter_id
        WHERE victim_id = :victim_id`,
-      [missing_person || null, last_known_location || null, special_needs || null, victim_id]
+      {
+        missing_person: missing_person || null,
+        last_known_location: last_known_location || null,
+        special_needs: special_needs || null,
+        shelter_id: finalShelterId,
+        victim_id
+      }
     );
-    res.json({ message: 'Victim updated successfully.' });
+    res.json({ message: 'Victim updated successfully.', data: { victim_id, shelter_id: finalShelterId } });
   } catch (err: any) {
     console.error('[Victims] PUT error:', err);
     res.status(500).json({ error: 'Failed to update victim.' });
@@ -264,16 +383,81 @@ router.post('/:id/phone', requireVictimOwnership, async (req, res) => {
 // PUT /api/victims/:id/profile
 router.put('/:id/profile', requireVictimOwnership, async (req, res) => {
   const victim_id = req.params.id as string;
-  const { household_head_name, gender, nid_number, last_known_location, special_needs } = req.body;
+  const { household_head_name, gender, nid_number, last_known_location, special_needs, shelter_id } = req.body;
 
   try {
+    const [currentVictim] = await query<any>(
+      `SELECT victim_id, shelter_id FROM VICTIM WHERE victim_id = :victim_id`,
+      [victim_id]
+    );
+    if (!currentVictim) return res.status(404).json({ error: 'Victim not found.' });
+
+    const currentShelterId = currentVictim.SHELTER_ID || null;
+    let targetShelterId: string | null = null;
+    if (shelter_id && typeof shelter_id === 'string' && shelter_id.trim() && shelter_id.trim() !== 'NONE') {
+      targetShelterId = shelter_id.trim();
+    }
+
+    // Handle shelter change
+    if (shelter_id !== undefined && targetShelterId !== currentShelterId) {
+      if (targetShelterId) {
+        // Validate target shelter capacity
+        const shelterRows = await query<any>(
+          `SELECT SH.shelter_id, SH.shelter_name, SH.capacity,
+                  (SELECT COUNT(*) FROM RESIDES_IN R WHERE R.shelter_id = SH.shelter_id AND R.checkout_date IS NULL) AS occupied_count
+           FROM SHELTER SH
+           WHERE SH.shelter_id = :shelter_id`,
+          [targetShelterId]
+        );
+        if (shelterRows.length === 0) {
+          return res.status(422).json({ error: 'Selected shelter does not exist.' });
+        }
+        const targetShelter = shelterRows[0];
+        const occupied = Number(targetShelter.OCCUPIED_COUNT || 0);
+        const capacity = Number(targetShelter.CAPACITY || 0);
+        if (capacity > 0 && occupied >= capacity) {
+          return res.status(422).json({ error: 'Selected shelter has reached maximum capacity.' });
+        }
+
+        // Checkout old shelter
+        if (currentShelterId) {
+          await query(
+            `UPDATE RESIDES_IN
+             SET checkout_date = SYSDATE
+             WHERE victim_id = :victim_id AND checkout_date IS NULL`,
+            [victim_id]
+          );
+        }
+
+        // Checkin new shelter
+        await query(
+          `INSERT INTO RESIDES_IN (victim_id, shelter_id, checkin_date)
+           VALUES (:victim_id, :shelter_id, SYSDATE)`,
+          [victim_id, targetShelterId]
+        );
+      } else {
+        // Removed from shelter
+        if (currentShelterId) {
+          await query(
+            `UPDATE RESIDES_IN
+             SET checkout_date = SYSDATE
+             WHERE victim_id = :victim_id AND checkout_date IS NULL`,
+            [victim_id]
+          );
+        }
+      }
+    }
+
+    const finalShelterId = shelter_id !== undefined ? targetShelterId : currentShelterId;
+
     await query(
       `UPDATE VICTIM 
        SET household_head_name = NVL(:household_head_name, household_head_name),
            gender = NVL(:gender, gender),
            nid_number = NVL(:nid_number, nid_number),
            last_known_location = NVL(:last_known_location, last_known_location),
-           special_needs = :special_needs
+           special_needs = :special_needs,
+           shelter_id = :shelter_id
        WHERE victim_id = :victim_id`,
       {
         household_head_name: household_head_name ? household_head_name.trim() : null,
@@ -281,10 +465,11 @@ router.put('/:id/profile', requireVictimOwnership, async (req, res) => {
         nid_number: nid_number ? nid_number.trim() : null,
         last_known_location: last_known_location ? last_known_location.trim() : null,
         special_needs: special_needs ? special_needs.trim() : null,
+        shelter_id: finalShelterId,
         victim_id
       }
     );
-    res.json({ message: 'Profile updated successfully.' });
+    res.json({ message: 'Profile updated successfully.', data: { victim_id, shelter_id: finalShelterId } });
   } catch (err: any) {
     console.error('[Victims] PUT /:id/profile error:', err);
     res.status(500).json({ error: 'Failed to update profile.' });

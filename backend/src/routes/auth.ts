@@ -191,14 +191,40 @@ router.post('/logout', (req: Request, res: Response) => {
 // VICTIM REGISTER
 // ─────────────────────────────────────────────
 router.post('/victim/register', async (req: Request, res: Response) => {
-  const { name, full_name, email, password, phone, nid, nid_number, gender, presentAddress, dob, disaster_name } = req.body;
+  const { name, full_name, email, password, phone, nid, nid_number, gender, presentAddress, dob, disaster_name, shelter_id } = req.body;
   const victimName = (full_name || name || '').trim();
   const victimEmail = (email || '').trim();
   const victimPhone = (phone || '').trim();
   const victimNid = (nid_number || nid || '').trim();
+  const cleanShelterId = (shelter_id && typeof shelter_id === 'string' && shelter_id.trim()) ? shelter_id.trim() : null;
 
   if (!victimName || !victimEmail || !password) {
     return res.status(422).json({ error: 'Name, email, and password are required.' });
+  }
+
+  // Capacity validation if shelter selected
+  if (cleanShelterId) {
+    try {
+      const shelterRows = await query<any>(
+        `SELECT SH.shelter_id, SH.shelter_name, SH.capacity,
+                (SELECT COUNT(*) FROM RESIDES_IN R WHERE R.shelter_id = SH.shelter_id AND R.checkout_date IS NULL) AS occupied_count
+         FROM SHELTER SH
+         WHERE SH.shelter_id = :shelter_id`,
+        [cleanShelterId]
+      );
+      if (shelterRows.length > 0) {
+        const shelter = shelterRows[0];
+        const occupied = Number(shelter.OCCUPIED_COUNT || 0);
+        const capacity = Number(shelter.CAPACITY || 0);
+        if (capacity > 0 && occupied >= capacity) {
+          return res.status(422).json({
+            error: `Shelter "${shelter.SHELTER_NAME}" is currently at full capacity (${occupied}/${capacity}). Please select another shelter.`
+          });
+        }
+      }
+    } catch (shelterErr) {
+      console.error('[Auth] Shelter capacity check error:', shelterErr);
+    }
   }
 
   try {
@@ -235,17 +261,30 @@ router.post('/victim/register', async (req: Request, res: Response) => {
       }
 
       await query(
-        `INSERT INTO VICTIM (victim_id, household_head_name, gender, nid_number, reported_date, last_known_location, missing_person, disaster_name)
-         VALUES (:victim_id, :household_head_name, :gender, :nid_number, SYSDATE, :last_known_location, 'N', :disaster_name)`,
+        `INSERT INTO VICTIM (victim_id, household_head_name, gender, nid_number, reported_date, last_known_location, missing_person, disaster_name, shelter_id)
+         VALUES (:victim_id, :household_head_name, :gender, :nid_number, SYSDATE, :last_known_location, 'N', :disaster_name, :shelter_id)`,
         {
           victim_id,
           household_head_name: victimName,
           gender: gender || null,
           nid_number: victimNid || null,
           last_known_location: presentAddress || null,
-          disaster_name: selectedDisaster
+          disaster_name: selectedDisaster,
+          shelter_id: cleanShelterId
         }
       );
+
+      if (cleanShelterId) {
+        try {
+          await query(
+            `INSERT INTO RESIDES_IN (victim_id, shelter_id, checkin_date)
+             VALUES (:victim_id, :shelter_id, SYSDATE)`,
+            [victim_id, cleanShelterId]
+          );
+        } catch (residesErr) {
+          console.error('[Auth] Failed to insert into RESIDES_IN:', residesErr);
+        }
+      }
 
       if (victimPhone) {
         try {

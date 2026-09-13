@@ -29,6 +29,11 @@ type VictimData = {
   MISSING_PERSON?: string | null;
   SPECIAL_NEEDS?: string | null;
   DISASTER_NAME?: string | null;
+  SHELTER_ID?: string | null;
+  SHELTER_NAME?: string | null;
+  SHELTER_LOCATION?: string | null;
+  SHELTER_CONTACT?: string | null;
+  SHELTER_PHONE?: string | null;
   phones?: string[];
   family_members?: FamilyMember[];
   special_needs?: string[];
@@ -55,10 +60,22 @@ function parseMemberDetails(rawName: string) {
   return { name: rawName, relation: "Family Member", age: null };
 }
 
+type ShelterOption = {
+  SHELTER_ID: string;
+  SHELTER_NAME: string;
+  ADDRESS_LINE?: string;
+  CAPACITY: number;
+  CURRENT_OCCUPANCY: number;
+  AVAILABLE_CAPACITY: number;
+  SHELTER_STATUS?: string;
+  CURRENT_STATUS?: string;
+};
+
 export default function VictimDashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [victim, setVictim] = useState<VictimData | null>(null);
+  const [shelters, setShelters] = useState<ShelterOption[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Modals state
@@ -79,6 +96,7 @@ export default function VictimDashboardPage() {
     nid_number: "",
     last_known_location: "",
     special_needs: "",
+    shelter_id: "",
   });
   const [submittingProfile, setSubmittingProfile] = useState(false);
 
@@ -101,6 +119,18 @@ export default function VictimDashboardPage() {
     }, 4000);
   };
 
+  const loadShelters = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/shelters`);
+      const data = await res.json();
+      if (data?.data && Array.isArray(data.data)) {
+        setShelters(data.data);
+      }
+    } catch (err) {
+      console.error("Failed to load shelters", err);
+    }
+  }, []);
+
   const loadVictimData = useCallback(async (victimId: string, token: string | null) => {
     try {
       const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
@@ -117,6 +147,7 @@ export default function VictimDashboardPage() {
           nid_number: data.data.NID_NUMBER || "",
           last_known_location: data.data.LAST_KNOWN_LOCATION || "",
           special_needs: data.data.SPECIAL_NEEDS || "",
+          shelter_id: data.data.SHELTER_ID || "",
         });
       }
     } catch (err) {
@@ -125,6 +156,10 @@ export default function VictimDashboardPage() {
       setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    loadShelters();
+  }, [loadShelters]);
 
   useEffect(() => {
     const stored = localStorage.getItem("dms_user");
@@ -174,6 +209,7 @@ export default function VictimDashboardPage() {
           nid_number: profileForm.nid_number.trim() || null,
           last_known_location: profileForm.last_known_location.trim() || null,
           special_needs: profileForm.special_needs.trim() || null,
+          shelter_id: profileForm.shelter_id || null,
         }),
       });
 
@@ -183,9 +219,12 @@ export default function VictimDashboardPage() {
         return;
       }
 
-      showToast("Profile updated successfully!");
+      showToast("Profile and shelter allocation updated successfully!");
       setIsEditProfileOpen(false);
-      await loadVictimData(victim.VICTIM_ID, token);
+      await Promise.all([
+        loadVictimData(victim.VICTIM_ID, token),
+        loadShelters()
+      ]);
     } catch {
       showToast("An error occurred while updating profile.", "error");
     } finally {
@@ -377,9 +416,86 @@ export default function VictimDashboardPage() {
             <div className="bg-slate-900/40 border border-slate-800/80 rounded-lg p-3.5"><div className="text-xs text-slate-400 font-mono mb-1 uppercase">Primary Phone</div><div className="font-mono text-slate-100">{phones[0] || "N/A"}</div></div>
             <div className="bg-slate-900/40 border border-slate-800/80 rounded-lg p-3.5"><div className="text-xs text-slate-400 font-mono mb-1 uppercase">Reported Date</div><div className="font-medium text-slate-100">{victim?.REPORTED_DATE ? new Date(victim.REPORTED_DATE).toLocaleDateString() : "N/A"}</div></div>
             <div className="bg-slate-900/40 border border-slate-800/80 rounded-lg p-3.5"><div className="text-xs text-slate-400 font-mono mb-1 uppercase">Disaster Event</div><div className="font-medium text-slate-100">{victim?.DISASTER_NAME || "N/A"}</div></div>
-            <div className="bg-slate-900/40 border border-slate-800/80 rounded-lg p-3.5 sm:col-span-2"><div className="text-xs text-slate-400 font-mono mb-1 uppercase">Present Address / Location</div><div className="font-medium text-slate-100">{victim?.LAST_KNOWN_LOCATION || "N/A"}</div></div>
             <div className="bg-slate-900/40 border border-slate-800/80 rounded-lg p-3.5"><div className="text-xs text-slate-400 font-mono mb-1 uppercase">Status</div><div>{victim?.MISSING_PERSON === "Y" ? <span className="px-2 py-0.5 text-xs bg-red-500/10 border border-red-500/30 text-red-400 rounded">Missing</span> : <span className="px-2 py-0.5 text-xs bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded">Safe</span>}</div></div>
+            <div className="bg-slate-900/40 border border-slate-800/80 rounded-lg p-3.5">
+              <div className="text-xs text-slate-400 font-mono mb-1 uppercase">Assigned Shelter</div>
+              <div>
+                {victim?.SHELTER_NAME ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-mono bg-blue-500/10 border border-blue-500/30 text-blue-300 rounded font-medium">
+                    <span className="material-symbols-outlined text-[13px]">night_shelter</span>
+                    {victim.SHELTER_NAME}
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 text-xs font-mono bg-slate-800 border border-slate-700 text-slate-400 rounded">
+                    Not Assigned
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="bg-slate-900/40 border border-slate-800/80 rounded-lg p-3.5 sm:col-span-2 lg:col-span-4"><div className="text-xs text-slate-400 font-mono mb-1 uppercase">Present Address / Location</div><div className="font-medium text-slate-100">{victim?.LAST_KNOWN_LOCATION || "N/A"}</div></div>
           </div>
+        </section>
+
+        {/* SHELTER ALLOCATION SECTION */}
+        <section className="bg-[#0c1921] border border-slate-800 rounded-xl p-6">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-5">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-blue-400">home_work</span>
+              <h2 className="text-lg font-semibold text-white">Shelter & Accommodation</h2>
+            </div>
+            {victim?.SHELTER_NAME ? (
+              <span className="px-2.5 py-1 text-xs font-mono bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-lg flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                ACCOMMODATED
+              </span>
+            ) : (
+              <span className="px-2.5 py-1 text-xs font-mono bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded-lg">
+                NOT ASSIGNED
+              </span>
+            )}
+          </div>
+
+          {victim?.SHELTER_NAME ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div className="bg-slate-900/40 border border-slate-800/80 rounded-lg p-3.5">
+                <div className="text-xs text-slate-400 font-mono mb-1 uppercase">Facility Name</div>
+                <div className="font-medium text-white flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-blue-400 text-base">night_shelter</span>
+                  {victim.SHELTER_NAME}
+                </div>
+              </div>
+              <div className="bg-slate-900/40 border border-slate-800/80 rounded-lg p-3.5 sm:col-span-2">
+                <div className="text-xs text-slate-400 font-mono mb-1 uppercase">Facility Location</div>
+                <div className="font-medium text-slate-100 flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-slate-400 text-base">location_on</span>
+                  {victim.SHELTER_LOCATION || "Address on record"}
+                </div>
+              </div>
+              <div className="bg-slate-900/40 border border-slate-800/80 rounded-lg p-3.5">
+                <div className="text-xs text-slate-400 font-mono mb-1 uppercase">Manager / Contact</div>
+                <div className="font-mono text-slate-100">
+                  {victim.SHELTER_CONTACT ? `${victim.SHELTER_CONTACT} ${victim.SHELTER_PHONE ? `(${victim.SHELTER_PHONE})` : ''}` : "Emergency Control Desk"}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-slate-900/30 border border-slate-800 rounded-lg p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
+                  <span className="material-symbols-outlined text-xl">info</span>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-white">No Emergency Shelter Assigned</p>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Your profile is active. Emergency response personnel can assign you to an available shelter facility.
+                  </p>
+                </div>
+              </div>
+              <span className="px-3 py-1.5 text-xs font-mono font-medium text-slate-400 bg-slate-800/50 rounded-lg border border-slate-700/60 shrink-0">
+                Status: Not Assigned
+              </span>
+            </div>
+          )}
         </section>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -566,6 +682,39 @@ export default function VictimDashboardPage() {
                   placeholder="e.g., Medical requirement, wheelchair access, etc."
                   className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-emerald-500 resize-none"
                 />
+              </div>
+
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="block text-xs font-mono text-slate-400">
+                    Assigned Emergency Shelter
+                  </label>
+                  <span className="text-[10px] text-blue-400 font-mono">REASSIGNABLE</span>
+                </div>
+                <select
+                  value={profileForm.shelter_id}
+                  onChange={(e) =>
+                    setProfileForm({ ...profileForm, shelter_id: e.target.value })
+                  }
+                  className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-emerald-500 font-sans"
+                >
+                  <option value="">-- No Shelter Assigned --</option>
+                  {shelters.map((s) => {
+                    const currentOcc = Number(s.CURRENT_OCCUPANCY || 0);
+                    const cap = Number(s.CAPACITY || 0);
+                    const availCap = s.AVAILABLE_CAPACITY !== undefined ? Number(s.AVAILABLE_CAPACITY) : Math.max(0, cap - currentOcc);
+                    const isSelected = profileForm.shelter_id === s.SHELTER_ID;
+                    const isFull = !isSelected && availCap <= 0;
+                    return (
+                      <option key={s.SHELTER_ID} value={s.SHELTER_ID} disabled={isFull}>
+                        {s.SHELTER_NAME} — {s.ADDRESS_LINE || "Location N/A"} {isFull ? "(FULL - 0 seats)" : `(${availCap} seats available)`}
+                      </option>
+                    );
+                  })}
+                </select>
+                <span className="text-[11px] text-slate-500 font-mono mt-1 block">
+                  Changing shelter automatically checks you out of the previous shelter and allocates space in real-time.
+                </span>
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-2">

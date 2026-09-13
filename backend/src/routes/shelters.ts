@@ -42,12 +42,38 @@ router.post('/checkin', requireRole(['admin', 'staff']), async (req, res) => {
   const { victim_id, shelter_id, checkin_date } = req.body;
   if (!victim_id || !shelter_id) return res.status(422).json({ error: 'Missing required fields' });
   try {
+    const shelterRows = await query<any>(
+      `SELECT SH.shelter_name, SH.capacity,
+              (SELECT COUNT(*) FROM RESIDES_IN R WHERE R.shelter_id = SH.shelter_id AND R.checkout_date IS NULL) AS occupied_count
+       FROM SHELTER SH
+       WHERE SH.shelter_id = :shelter_id`,
+      [shelter_id]
+    );
+    if (shelterRows.length === 0) return res.status(404).json({ error: 'Shelter not found' });
+    const shelter = shelterRows[0];
+    const occupied = Number(shelter.OCCUPIED_COUNT || 0);
+    const capacity = Number(shelter.CAPACITY || 0);
+    if (capacity > 0 && occupied >= capacity) {
+      return res.status(422).json({
+        error: `Shelter "${shelter.SHELTER_NAME}" is currently at full capacity (${occupied}/${capacity}). Cannot check in victim.`
+      });
+    }
+
     const date = checkin_date || new Date().toISOString().slice(0, 10);
     await query(
       `INSERT INTO RESIDES_IN (victim_id, shelter_id, checkin_date)
        VALUES (:victim_id, :shelter_id, TO_DATE(:checkin_date, 'YYYY-MM-DD'))`,
       [victim_id, shelter_id, date]
     );
+
+    // Synchronize VICTIM.shelter_id
+    try {
+      await query(
+        `UPDATE VICTIM SET shelter_id = :shelter_id WHERE victim_id = :victim_id`,
+        [shelter_id, victim_id]
+      );
+    } catch (_) {}
+
     res.status(201).json({ message: 'Victim checked in', victim_id, shelter_id });
   } catch (err: any) {
     if (err.errorNum === 1) return res.status(409).json({ error: 'Victim already checked into this shelter' });
@@ -67,6 +93,15 @@ router.post('/checkout', requireRole(['admin', 'staff']), async (req, res) => {
        WHERE victim_id = :victim_id AND shelter_id = :shelter_id AND checkout_date IS NULL`,
       [date, victim_id, shelter_id]
     );
+
+    // Clear VICTIM.shelter_id
+    try {
+      await query(
+        `UPDATE VICTIM SET shelter_id = NULL WHERE victim_id = :victim_id AND shelter_id = :shelter_id`,
+        [victim_id, shelter_id]
+      );
+    } catch (_) {}
+
     res.json({ message: 'Victim checked out' });
   } catch (err) {
     res.status(500).json({ error: 'Failed to check out victim' });

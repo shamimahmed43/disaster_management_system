@@ -161,6 +161,41 @@ async function ensureSchemaUpdates(): Promise<void> {
   } catch (err: any) {
     // Ignore
   }
+
+  // 4. Ensure SHELTER_ID column exists in VICTIM table
+  try {
+    const victimCols = await query<{ COLUMN_NAME: string }>(
+      `SELECT column_name FROM user_tab_columns WHERE table_name = 'VICTIM' AND column_name = 'SHELTER_ID'`
+    );
+    if (victimCols.length === 0) {
+      await query(`ALTER TABLE VICTIM ADD (shelter_id VARCHAR2(50) REFERENCES SHELTER(shelter_id))`);
+      console.log('✅ Added SHELTER_ID column to VICTIM table.');
+    }
+  } catch (err: any) {
+    try {
+      await query(`ALTER TABLE VICTIM ADD (shelter_id VARCHAR2(50))`);
+    } catch (_) {}
+  }
+
+  // 5. Backfill VICTIM.shelter_id from active RESIDES_IN
+  try {
+    await query(`
+      UPDATE VICTIM V
+      SET V.shelter_id = (
+        SELECT R.shelter_id
+        FROM RESIDES_IN R
+        WHERE R.victim_id = V.victim_id
+          AND R.checkout_date IS NULL
+          AND ROWNUM = 1
+      )
+      WHERE V.shelter_id IS NULL
+        AND EXISTS (
+          SELECT 1 FROM RESIDES_IN R WHERE R.victim_id = V.victim_id AND R.checkout_date IS NULL
+        )
+    `);
+  } catch (err: any) {
+    // Ignore
+  }
 }
 
 

@@ -32,6 +32,9 @@ type Victim = {
   DISASTER_NAME: string;
   DISASTER_TYPE: string;
   DIVISION: string;
+  SHELTER_ID?: string;
+  SHELTER_NAME?: string;
+  SHELTER_LOCATION?: string;
 };
 
 type Disaster = {
@@ -54,6 +57,11 @@ type VictimDetail = {
   DISASTER_ID: string;
   DISASTER_NAME: string;
   DIVISION: string;
+  SHELTER_ID?: string;
+  SHELTER_NAME?: string;
+  SHELTER_LOCATION?: string;
+  SHELTER_CONTACT?: string;
+  SHELTER_PHONE?: string;
   phones: string[];
   special_needs: string[];
   family_members: Array<{ MEMBER_SEQ_NO: number; NAME: string; AGE?: number; RELATION_TO_HEAD?: string }>;
@@ -66,6 +74,17 @@ type ShelterStay = {
   CHECKOUT_DATE: string | null;
   SHELTER_NAME: string;
   SHELTER_STATUS: string;
+};
+
+type Shelter = {
+  SHELTER_ID: string;
+  SHELTER_NAME: string;
+  ADDRESS_LINE?: string;
+  CAPACITY: number;
+  CURRENT_OCCUPANCY: number;
+  AVAILABLE_CAPACITY: number;
+  SHELTER_STATUS?: string;
+  CURRENT_STATUS?: string;
 };
 
 type DrawerMode = "view" | "add";
@@ -81,6 +100,7 @@ const EMPTY_FORM = {
   missing_person: "N",
   special_needs: "",
   disaster_id: "",
+  shelter_id: "",
   phones: "",
   family_members: [] as { name: string; age: string; relation_to_head: string }[],
 };
@@ -88,9 +108,10 @@ const EMPTY_FORM = {
 export default function VictimsPage() {
   const { data, loading, error, refetch } = useApi<Victim[]>(getVictims as any);
   const { data: disasters } = useApi<Disaster[]>(getDisasters as any);
+  const { data: allShelters, refetch: refetchShelters } = useApi<Shelter[]>(getShelters as any);
   const [victimDetail, setVictimDetail] = useState<VictimDetail | null>(null);
   const [victimStays, setVictimStays] = useState<ShelterStay[]>([]);
-  const [shelters, setShelters] = useState<{SHELTER_ID: string, SHELTER_NAME: string}[]>([]);
+  const [shelters, setShelters] = useState<Shelter[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
   const [isCheckingInOut, setIsCheckingInOut] = useState(false);
   const [selectedShelterId, setSelectedShelterId] = useState("");
@@ -177,6 +198,7 @@ export default function VictimsPage() {
     setForm(EMPTY_FORM);
     setSubmitError(null);
     setSubmitSuccess(false);
+    refetchShelters?.();
     setDrawerMode("add");
     setIsDrawerOpen(true);
   };
@@ -216,6 +238,8 @@ export default function VictimsPage() {
       const stays = await getVictimStays(victim_id);
       setVictimStays(stays as any);
       setSelectedShelterId("");
+      refetch();
+      refetchShelters?.();
     } catch (err: any) {
       toast.error(err.message || "Failed to check in.");
     } finally {
@@ -231,6 +255,8 @@ export default function VictimsPage() {
       toast.success("Victim checked out successfully.");
       const stays = await getVictimStays(victim_id);
       setVictimStays(stays as any);
+      refetch();
+      refetchShelters?.();
     } catch (err: any) {
       toast.error(err.message || "Failed to check out.");
     } finally {
@@ -250,6 +276,7 @@ export default function VictimsPage() {
     try {
       await createVictim({
         ...form,
+        shelter_id: form.shelter_id || null,
         age: form.age ? parseInt(form.age) : null,
         phones: form.phones ? form.phones.split(",").map((p) => p.trim()).filter(Boolean) : [],
         special_needs: form.special_needs ? form.special_needs.split(",").map((n) => n.trim()).filter(Boolean) : [],
@@ -261,6 +288,7 @@ export default function VictimsPage() {
       } as any);
       setSubmitSuccess(true);
       refetch();
+      refetchShelters?.();
       setTimeout(() => {
         setIsDrawerOpen(false);
         setSubmitSuccess(false);
@@ -340,7 +368,7 @@ export default function VictimsPage() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr>
-                  {["Victim ID", "Household Head", "Age", "Gender", "Status", "Disaster", "Last Seen Location"].map((h) => (
+                  {["Victim ID", "Household Head", "Age", "Gender", "Status", "Disaster", "Assigned Shelter", "Last Seen Location"].map((h) => (
                     <th key={h} className="p-4 font-mono text-xs text-gray-500 uppercase tracking-wider font-bold bg-azure border-b border-gray-200 first:rounded-tl-xl last:rounded-tr-xl">
                       {h}
                     </th>
@@ -355,7 +383,7 @@ export default function VictimsPage() {
               <tbody className="text-sm font-medium text-black">
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="p-8 text-center text-gray-500 font-bold">
+                    <td colSpan={canEdit ? 9 : 8} className="p-8 text-center text-gray-500 font-bold">
                       {victims.length === 0 ? "No victims registered yet. Click 'Add New Victim' to begin." : "No victims match your search."}
                     </td>
                   </tr>
@@ -385,6 +413,18 @@ export default function VictimsPage() {
                         <span className="inline-flex items-center px-3 py-1 rounded-lg bg-gray-100 text-gray-700 font-bold text-xs uppercase tracking-wide">
                           {victim.DISASTER_NAME}
                         </span>
+                      </td>
+                      <td className="p-4">
+                        {victim.SHELTER_NAME ? (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-blue-50 text-cobalt font-bold text-xs">
+                            <span className="material-symbols-outlined text-[14px]">night_shelter</span>
+                            {victim.SHELTER_NAME}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400 font-bold text-xs">
+                            Not Assigned
+                          </span>
+                        )}
                       </td>
                       <td className="p-4 text-gray-600">{victim.LAST_SEEN_LOCATION || "Unknown"}</td>
                       {canEdit && (
@@ -761,6 +801,40 @@ export default function VictimsPage() {
               {(!disasters || disasters.length === 0) && (
                 <p className="text-sm font-bold text-yellow-600 mt-2 bg-yellow-50 p-3 rounded-xl">
                   No disaster events yet — create one first.
+                </p>
+              )}
+            </div>
+
+            {/* Shelter Select */}
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <label className="block font-mono text-xs font-bold text-gray-500 uppercase tracking-wider">Select Shelter</label>
+                <span className="text-[10px] font-mono font-bold text-cobalt bg-blue-50 px-2 py-0.5 rounded">Optional</span>
+              </div>
+              <select
+                value={form.shelter_id}
+                onChange={(e) => setField("shelter_id", e.target.value)}
+                className="w-full bg-gray-50 border border-gray-200 focus:border-cobalt focus:ring-2 focus:ring-azure rounded-xl px-4 py-3 text-sm font-medium text-black outline-none transition-all"
+              >
+                <option value="">-- No Shelter (Not Assigned) --</option>
+                {(allShelters ?? [])
+                  .filter((s) => {
+                    const available = s.AVAILABLE_CAPACITY !== undefined ? s.AVAILABLE_CAPACITY : (s.CAPACITY - (s.CURRENT_OCCUPANCY || 0));
+                    const status = s.SHELTER_STATUS || s.CURRENT_STATUS || "Open";
+                    return available > 0 && status.toLowerCase() !== "full" && status.toLowerCase() !== "closed";
+                  })
+                  .map((sh) => {
+                    const available = sh.AVAILABLE_CAPACITY !== undefined ? sh.AVAILABLE_CAPACITY : (sh.CAPACITY - (sh.CURRENT_OCCUPANCY || 0));
+                    return (
+                      <option key={sh.SHELTER_ID} value={sh.SHELTER_ID}>
+                        {sh.SHELTER_NAME} — {sh.ADDRESS_LINE || "Location N/A"} ({available} spots available)
+                      </option>
+                    );
+                  })}
+              </select>
+              {allShelters && allShelters.length > 0 && allShelters.filter((s) => (s.AVAILABLE_CAPACITY !== undefined ? s.AVAILABLE_CAPACITY : (s.CAPACITY - (s.CURRENT_OCCUPANCY || 0))) > 0).length === 0 && (
+                <p className="text-xs font-bold text-amber-600 mt-1.5 bg-amber-50 p-2 rounded-lg">
+                  Notice: All registered shelters are currently at full capacity.
                 </p>
               )}
             </div>
