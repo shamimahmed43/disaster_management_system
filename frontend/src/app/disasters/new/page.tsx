@@ -20,6 +20,27 @@ const DIVISIONS = [
 
 const SEVERITY_LEVELS = ["Low", "Medium", "High", "Critical"];
 
+function calculateStatus(startDateStr: string, endDateStr: string): "Active" | "Resolved" | "Upcoming" {
+  if (!startDateStr) return "Active";
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const parts = startDateStr.split("-").map(Number);
+  if (parts.length === 3) {
+    const start = new Date(parts[0], parts[1] - 1, parts[2]);
+    if (start > today) {
+      return "Upcoming";
+    }
+  }
+
+  if (endDateStr && endDateStr.trim() !== "") {
+    return "Resolved";
+  }
+
+  return "Active";
+}
+
 export default function NewIncidentPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
@@ -36,22 +57,23 @@ export default function NewIncidentPage() {
     start_date: "",
     end_date: "",
     severity_level: "",
-    status: "Active",
   });
 
   const set = (field: string, value: string) =>
     setForm((prev) => ({ ...prev, [field]: value }));
 
   async function handleSubmit() {
-    if (!form.disaster_id || !form.disaster_name || !form.disaster_type || !form.division || !form.district || !form.start_date || !form.severity_level || !form.status) {
+    if (!form.disaster_id || !form.disaster_name || !form.disaster_type || !form.division || !form.district || !form.start_date || !form.severity_level) {
       setSubmitError("Please fill in all required fields.");
       return;
     }
     setSubmitting(true);
     setSubmitError(null);
     try {
+      const calculatedStatus = calculateStatus(form.start_date, form.end_date);
       const payload = {
         ...form,
+        status: calculatedStatus,
         end_date: form.end_date.trim() === "" ? null : form.end_date,
       };
       await createDisaster(payload as any);
@@ -152,29 +174,16 @@ export default function NewIncidentPage() {
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block font-label-caps text-label-caps text-on-surface-variant mb-2">SEVERITY LEVEL *</label>
-                    <select
-                      className="w-full bg-surface-dim border border-outline-variant text-on-surface font-body-md rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary transition-all appearance-none"
-                      value={form.severity_level}
-                      onChange={(e) => set("severity_level", e.target.value)}
-                    >
-                      <option value="">Select Severity</option>
-                      {SEVERITY_LEVELS.map((s) => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block font-label-caps text-label-caps text-on-surface-variant mb-2">STATUS *</label>
-                    <select
-                      className="w-full bg-surface-dim border border-outline-variant text-on-surface font-body-md rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary transition-all appearance-none"
-                      value={form.status}
-                      onChange={(e) => set("status", e.target.value)}
-                    >
-                      <option value="Active">Active</option>
-                      <option value="Resolved">Resolved</option>
-                    </select>
-                  </div>
+                <div>
+                  <label className="block font-label-caps text-label-caps text-on-surface-variant mb-2">SEVERITY LEVEL *</label>
+                  <select
+                    className="w-full bg-surface-dim border border-outline-variant text-on-surface font-body-md rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary transition-all appearance-none"
+                    value={form.severity_level}
+                    onChange={(e) => set("severity_level", e.target.value)}
+                  >
+                    <option value="">Select Severity</option>
+                    {SEVERITY_LEVELS.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
                 </div>
 
                 <div>
@@ -286,7 +295,7 @@ export default function NewIncidentPage() {
                   { label: "Disaster Name", value: form.disaster_name },
                   { label: "Type", value: form.disaster_type },
                   { label: "Severity", value: form.severity_level },
-                  { label: "Status", value: form.status },
+                  { label: "Status (Auto-calculated)", value: calculateStatus(form.start_date, form.end_date) },
                   { label: "Division", value: form.division },
                   { label: "District", value: form.district },
                   { label: "Start Date", value: form.start_date },

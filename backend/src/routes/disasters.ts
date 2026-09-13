@@ -39,7 +39,11 @@ router.get('/', async (req, res) => {
         district,
         start_date,
         end_date,
-        CASE WHEN end_date IS NOT NULL AND end_date < SYSDATE THEN 'Resolved' ELSE 'Active' END AS status,
+        CASE
+          WHEN start_date > SYSDATE THEN 'Upcoming'
+          WHEN end_date IS NOT NULL AND end_date <= SYSDATE THEN 'Resolved'
+          ELSE 'Active'
+        END AS status,
         (end_date - start_date) AS duration_days
       FROM DISASTER_EVENT
       ${whereClause}
@@ -59,7 +63,11 @@ router.get('/:name', async (req, res) => {
     const name = decodeURIComponent(paramName);
     const [disaster] = await query(
       `SELECT disaster_name, disaster_type, division, district, start_date, end_date,
-              CASE WHEN end_date IS NOT NULL AND end_date < SYSDATE THEN 'Resolved' ELSE 'Active' END AS status,
+              CASE
+                WHEN start_date > SYSDATE THEN 'Upcoming'
+                WHEN end_date IS NOT NULL AND end_date <= SYSDATE THEN 'Resolved'
+                ELSE 'Active'
+              END AS status,
               (end_date - start_date) AS duration_days
        FROM DISASTER_EVENT
        WHERE disaster_name = :name`,
