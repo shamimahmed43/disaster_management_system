@@ -54,7 +54,6 @@ export default function SheltersPage() {
 
   // ─── Real working filters ───
   const [statusFilters, setStatusFilters] = useState<Set<string>>(new Set());
-  const [searchQuery, setSearchQuery] = useState<string>("");
 
   const { isInternal, isAdmin, isStaff } = useAuth();
   const canEdit = isAdmin || isStaff;
@@ -207,13 +206,7 @@ export default function SheltersPage() {
   // Apply filters
   const filtered = shelters.filter((s) => {
     const matchesStatus = statusFilters.size === 0 || statusFilters.has(s.SHELTER_STATUS);
-    const queryLower = searchQuery.toLowerCase();
-    const matchesSearch =
-      searchQuery === "" ||
-      (s.SHELTER_NAME || "").toLowerCase().includes(queryLower) ||
-      (s.SHELTER_ID || "").toLowerCase().includes(queryLower) ||
-      (s.ADDRESS_LINE || "").toLowerCase().includes(queryLower);
-    return matchesStatus && matchesSearch;
+    return matchesStatus;
   });
 
   const toggleStatus = (status: string) => {
@@ -235,28 +228,12 @@ export default function SheltersPage() {
       <div className="max-w-[1600px] mx-auto flex flex-col md:flex-row gap-6 items-start">
         {/* Left Filter Sidebar */}
         <aside className="w-full md:w-72 shrink-0 flex flex-col gap-4 sticky top-[104px]">
-          {/* Search */}
-          <div className="bg-white border border-gray-200 rounded-[2rem] p-6 shadow-sm">
-            <div className="relative">
-              <span className="material-symbols-outlined icon-thick absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-[18px]">
-                search
-              </span>
-              <input
-                type="text"
-                placeholder="Search shelters..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-gray-50 border border-gray-200 text-black font-medium rounded-xl pl-11 pr-4 py-3 text-sm focus:border-cobalt focus:ring-2 focus:ring-azure focus:outline-none transition-all placeholder:text-gray-400"
-              />
-            </div>
-          </div>
-
           <div className="bg-white border border-gray-200 rounded-[2rem] p-6 shadow-sm">
             <h2 className="font-display text-xl text-black mb-4 pb-4 border-b border-gray-100 flex items-center justify-between">
               Filters
-              {(statusFilters.size > 0 || searchQuery) && (
+              {statusFilters.size > 0 && (
                 <button
-                  onClick={() => { setStatusFilters(new Set()); setSearchQuery(""); }}
+                  onClick={() => setStatusFilters(new Set())}
                   className="font-mono text-xs font-bold text-cobalt uppercase tracking-wider hover:underline"
                 >
                   Clear

@@ -38,7 +38,6 @@ export default function DonationsPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [typeFilter, setTypeFilter] = useState("All");
-  const [search, setSearch] = useState("");
 
   const { isAdmin, isStaff } = useAuth();
   const canEdit = isAdmin || isStaff;
@@ -110,12 +109,7 @@ export default function DonationsPage() {
 
   const filtered = donations.filter((d) => {
     const matchType = typeFilter === "All" || d.DONATION_TYPE === typeFilter;
-    const queryLower = search.toLowerCase();
-    const matchSearch =
-      search === "" ||
-      (d.DONOR_NAME || "").toLowerCase().includes(queryLower) ||
-      (d.DONATION_ID || "").toLowerCase().includes(queryLower);
-    return matchType && matchSearch;
+    return matchType;
   });
 
   const set = (k: string, v: string) => setForm((p) => ({ ...p, [k]: v }));
@@ -183,28 +177,9 @@ export default function DonationsPage() {
         </div>
 
         {/* Filters */}
-        <div className="bg-white border border-gray-200 rounded-[2rem] p-6 flex flex-col lg:flex-row gap-4 items-end shadow-sm">
-          {/* Search */}
-          <div className="flex-1 w-full relative">
-            <label className="block text-xs font-mono text-gray-500 uppercase font-bold tracking-wider mb-2">
-              Search Donors
-            </label>
-            <div className="relative">
-              <span className="material-symbols-outlined icon-thick absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-[18px]">
-                search
-              </span>
-              <input
-                type="text"
-                placeholder="Search donor name or ID..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full bg-gray-50 border border-gray-200 focus:border-cobalt focus:ring-2 focus:ring-azure rounded-xl pl-11 pr-4 py-3 text-sm font-medium text-black placeholder:text-gray-400 outline-none transition-all"
-              />
-            </div>
-          </div>
-
+        <div className="bg-white border border-gray-200 rounded-[2rem] p-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
           {/* Type Filter */}
-          <div className="w-full lg:w-auto">
+          <div className="w-full">
             <label className="block text-xs font-mono text-gray-500 uppercase font-bold tracking-wider mb-2">Filter Type</label>
             <div className="flex gap-2 flex-wrap">
               {["All", ...donationTypes].map((t) => (

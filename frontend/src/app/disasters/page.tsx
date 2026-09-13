@@ -42,7 +42,6 @@ export default function DisastersPage() {
 
   const [typeFilter, setTypeFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState<"All" | "Active" | "Resolved">("All");
-  const [search, setSearch] = useState("");
 
   const { isInternal, isAdmin, isStaff } = useAuth();
   const canEdit = isAdmin || isStaff;
@@ -135,13 +134,7 @@ export default function DisastersPage() {
       statusFilter === "All" ||
       (statusFilter === "Active" && d.STATUS?.toLowerCase() === "active") ||
       (statusFilter === "Resolved" && d.STATUS?.toLowerCase() !== "active");
-    const searchLower = search.toLowerCase();
-    const matchSearch =
-      search === "" ||
-      (d.DISASTER_NAME || "").toLowerCase().includes(searchLower) ||
-      (d.DIVISION || "").toLowerCase().includes(searchLower) ||
-      (d.DISTRICT || "").toLowerCase().includes(searchLower);
-    return matchType && matchStatus && matchSearch;
+    return matchType && matchStatus;
   });
 
   const activeCount = disasters.filter((d) => d.STATUS?.toLowerCase() === "active").length;
@@ -187,26 +180,7 @@ export default function DisastersPage() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white border border-gray-200 rounded-[2rem] p-6 flex flex-col lg:flex-row gap-4 items-end shadow-sm">
-        {/* Search */}
-        <div className="flex-1 w-full relative">
-          <label className="block text-xs font-mono text-gray-500 uppercase font-bold tracking-wider mb-2">
-            Search Events
-          </label>
-          <div className="relative">
-            <span className="material-symbols-outlined icon-thick absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-[18px]">
-              search
-            </span>
-            <input
-              type="text"
-              placeholder="Search ID, Name, Division..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-gray-50 border border-gray-200 focus:border-cobalt focus:ring-2 focus:ring-azure rounded-xl pl-11 pr-4 py-3 text-sm font-medium text-black placeholder:text-gray-400 outline-none transition-all"
-            />
-          </div>
-        </div>
-
+      <div className="bg-white border border-gray-200 rounded-[2rem] p-6 flex flex-col sm:flex-row gap-6 items-center justify-between shadow-sm">
         {/* Status filter */}
         <div>
           <label className="block text-xs font-mono text-gray-500 uppercase font-bold tracking-wider mb-2">Status</label>
@@ -228,7 +202,7 @@ export default function DisastersPage() {
         </div>
 
         {/* Type filter */}
-        <div className="w-full lg:w-48">
+        <div className="w-full sm:w-64">
           <label className="block text-xs font-mono text-gray-500 uppercase font-bold tracking-wider mb-2">Type</label>
           <select
             value={typeFilter}

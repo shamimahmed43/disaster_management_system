@@ -17,6 +17,7 @@ import distributionsRouter from './routes/distributions';
 import personnelRouter from './routes/personnel';
 import usersRouter from './routes/users';
 import locationsRouter from './routes/locations';
+import searchRouter from './routes/search';
 
 dotenv.config();
 
@@ -68,6 +69,7 @@ app.use('/api/distributions', distributionsRouter);
 app.use('/api/personnel', personnelRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/locations', locationsRouter);
+app.use('/api/search', searchRouter);
 
 // ─────────────────────────────────────────────
 // 404 handler

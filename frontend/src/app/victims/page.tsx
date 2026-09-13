@@ -98,7 +98,6 @@ export default function VictimsPage() {
   const [selected, setSelected] = useState<Victim | null>(null);
   const [drawerMode, setDrawerMode] = useState<DrawerMode>("view");
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [search, setSearch] = useState("");
   const [missingFilter, setMissingFilter] = useState<"all" | "Y" | "N">("all");
 
   const { isInternal, isAdmin, isStaff } = useAuth();
@@ -149,13 +148,8 @@ export default function VictimsPage() {
 
   const victims = data ?? [];
   const filtered = victims.filter((v) => {
-    const searchLower = search.toLowerCase();
-    const matchSearch = search === "" ||
-      (v.VICTIM_ID || "").toLowerCase().includes(searchLower) ||
-      (v.HOUSEHOLD_HEAD_NAME || "").toLowerCase().includes(searchLower) ||
-      (v.NID_NUMBER || "").toLowerCase().includes(searchLower);
     const matchMissing = missingFilter === "all" || v.MISSING_PERSON === missingFilter;
-    return matchSearch && matchMissing;
+    return matchMissing;
   });
 
   if (loading) return (
@@ -310,30 +304,11 @@ export default function VictimsPage() {
         </div>
 
         {/* Filter Bar */}
-        <div className="bg-white border border-gray-200 rounded-[2rem] p-6 flex flex-col lg:flex-row gap-4 items-end shadow-sm">
-          {/* Search */}
-          <div className="flex-1 w-full relative">
-            <label className="block text-xs font-mono text-gray-500 uppercase font-bold tracking-wider mb-2">
-              Search ID / Name / NID
-            </label>
-            <div className="relative">
-              <span className="material-symbols-outlined icon-thick absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-[18px]">
-                search
-              </span>
-              <input
-                className="w-full bg-gray-50 border border-gray-200 focus:border-cobalt focus:ring-2 focus:ring-azure rounded-xl pl-11 pr-4 py-3 text-sm font-medium text-black placeholder:text-gray-400 outline-none transition-all"
-                placeholder="e.g., VCT-001 or John..."
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-          </div>
-
+        <div className="bg-white border border-gray-200 rounded-[2rem] p-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
           {/* Missing Filter */}
-          <div>
+          <div className="w-full sm:w-auto">
             <label className="block text-xs font-mono text-gray-500 uppercase font-bold tracking-wider mb-2">Status Filter</label>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               {[
                 { val: "all", label: "All Records" },
                 { val: "Y", label: "Missing Only" },
