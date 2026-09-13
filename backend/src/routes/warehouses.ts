@@ -14,18 +14,25 @@ router.get('/', requireRole(['admin', 'staff']), async (req, res) => {
         W.location,
         W.capacity,
         W.manager_name,
-        COUNT(D.donation_id) AS total_donations_stored,
-        SUM(D.amount_or_value) AS total_donation_value
+        COUNT(DISTINCT D.donation_id) AS total_donations_stored,
+        GREATEST(0, NVL(SUM(D.amount_or_value), 0) - NVL(MAX(D_DIST.total_distributed), 0)) AS total_donation_value
       FROM WAREHOUSE W
       LEFT JOIN DONATION D ON W.warehouse_id = D.warehouse_id
+      LEFT JOIN (
+        SELECT warehouse_id, SUM(quantity) AS total_distributed
+        FROM DISTRIBUTION
+        GROUP BY warehouse_id
+      ) D_DIST ON W.warehouse_id = D_DIST.warehouse_id
       GROUP BY W.warehouse_id, W.warehouse_name, W.location, W.capacity, W.manager_name
       ORDER BY W.warehouse_name
     `);
     res.json({ data: rows });
-  } catch (err) {
+  } catch (err: any) {
+    console.error('[Warehouses] GET error:', err);
     res.status(500).json({ error: 'Failed to fetch warehouses' });
   }
 });
+
 
 // POST /api/warehouses
 router.post('/', requireRole(['admin', 'staff']), async (req, res) => {

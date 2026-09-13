@@ -33,7 +33,10 @@ export async function initDB(): Promise<void> {
     });
     dbConnected = true;
     console.log('✅ Oracle DB connection pool created successfully.');
+    await ensureSchemaUpdates();
   } catch (err) {
+
+
     // Graceful degradation: log error but DO NOT exit.
     // Backend will start normally; all DB routes will return 503.
     console.error('⚠️  Oracle DB connection failed. Backend running without DB.', err);
@@ -98,3 +101,67 @@ export async function execute(
     }
   }
 }
+
+async function ensureSchemaUpdates(): Promise<void> {
+  // 1. Ensure PURPOSE column exists in DONATION table
+  try {
+    const cols = await query<{ COLUMN_NAME: string }>(
+      `SELECT column_name FROM user_tab_columns WHERE table_name = 'DONATION' AND column_name = 'PURPOSE'`
+    );
+    if (cols.length === 0) {
+      await query(`ALTER TABLE DONATION ADD (purpose VARCHAR2(200))`);
+      console.log('✅ Added PURPOSE column to DONATION table.');
+    }
+  } catch (err: any) {
+    // Ignore
+  }
+
+  // 2. Ensure DONATION_SUPPLY table exists
+  try {
+    const tabs = await query<{ TABLE_NAME: string }>(
+      `SELECT table_name FROM user_tables WHERE table_name = 'DONATION_SUPPLY'`
+    );
+    if (tabs.length === 0) {
+      await query(`
+        CREATE TABLE DONATION_SUPPLY (
+          supply_id        VARCHAR2(50) PRIMARY KEY,
+          donation_id      VARCHAR2(50) NOT NULL,
+          warehouse_id     VARCHAR2(50) NOT NULL,
+          supplied_amount  NUMBER NOT NULL,
+          supply_date      DATE NOT NULL,
+          item_details     VARCHAR2(255),
+          FOREIGN KEY (donation_id) REFERENCES DONATION(donation_id),
+          FOREIGN KEY (warehouse_id) REFERENCES WAREHOUSE(warehouse_id)
+        )
+      `);
+      console.log('✅ DONATION_SUPPLY table created.');
+    }
+  } catch (err: any) {
+    // Ignore
+  }
+
+  // 3. Backfill DONATION_SUPPLY if empty
+  try {
+    await query(`
+      INSERT INTO DONATION_SUPPLY (supply_id, donation_id, warehouse_id, supplied_amount, supply_date, item_details)
+      SELECT
+        'SUP-' || donation_id,
+        donation_id,
+        warehouse_id,
+        NVL(amount_or_value, 0),
+        donation_date,
+        'Initial Donation Allocation'
+      FROM DONATION D
+      WHERE D.warehouse_id IS NOT NULL
+        AND NVL(D.amount_or_value, 0) > 0
+        AND NOT EXISTS (
+          SELECT 1 FROM DONATION_SUPPLY S WHERE S.donation_id = D.donation_id
+        )
+    `);
+  } catch (err: any) {
+    // Ignore
+  }
+}
+
+
+

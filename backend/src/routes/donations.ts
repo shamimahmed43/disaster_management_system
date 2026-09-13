@@ -14,12 +14,13 @@ router.get('/', requireRole(['admin', 'staff']), async (req, res) => {
         D.donor_id,
         D.contact_info,
         D.donation_type,
+        D.purpose,
         D.amount_or_value,
         D.donation_date,
         D.warehouse_id,
         W.warehouse_name
       FROM DONATION D
-      JOIN WAREHOUSE W ON D.warehouse_id = W.warehouse_id
+      LEFT JOIN WAREHOUSE W ON D.warehouse_id = W.warehouse_id
       ORDER BY D.donation_date DESC
     `);
     res.json({ data: rows });
@@ -32,16 +33,20 @@ router.get('/', requireRole(['admin', 'staff']), async (req, res) => {
 // POST /api/donations
 router.post('/', requireRole(['admin', 'staff']), async (req, res) => {
   const { donation_id, donor_name, donor_id, contact_info,
-          donation_type, amount_or_value, donation_date, warehouse_id } = req.body;
+          donation_type, amount_or_value, donation_date, warehouse_id, purpose } = req.body;
   if (!donation_id || !donor_name || !donation_type || !warehouse_id) {
     return res.status(422).json({ error: 'Missing required fields' });
   }
+
+  const amt = amount_or_value ? Number(amount_or_value) : null;
+
   try {
     await query(
-      `INSERT INTO DONATION (donation_id, donor_name, donor_id, contact_info, donation_type, amount_or_value, donation_date, warehouse_id)
-       VALUES (:donation_id, :donor_name, :donor_id, :contact_info, :donation_type, :amount_or_value, TO_DATE(:donation_date, 'YYYY-MM-DD'), :warehouse_id)`,
-      [donation_id, donor_name, donor_id || null, contact_info || null, donation_type, amount_or_value || null, donation_date, warehouse_id]
+      `INSERT INTO DONATION (donation_id, donor_name, donor_id, contact_info, donation_type, purpose, amount_or_value, donation_date, warehouse_id)
+       VALUES (:donation_id, :donor_name, :donor_id, :contact_info, :donation_type, :purpose, :amount_or_value, TO_DATE(:donation_date, 'YYYY-MM-DD'), :warehouse_id)`,
+      [donation_id, donor_name, donor_id || null, contact_info || null, donation_type, purpose || null, amt, donation_date, warehouse_id]
     );
+
     res.status(201).json({ message: 'Donation recorded', donation_id });
   } catch (err: any) {
     if (err.errorNum === 1) return res.status(409).json({ error: 'Donation ID already exists' });
@@ -52,19 +57,21 @@ router.post('/', requireRole(['admin', 'staff']), async (req, res) => {
 
 // PUT /api/donations/:id
 router.put('/:id', requireRole(['admin', 'staff']), async (req, res) => {
-  const { contact_info, amount_or_value, donation_date, donation_type } = req.body;
+  const { contact_info, amount_or_value, donation_date, donation_type, purpose } = req.body;
   const donation_id = String(req.params.id);
 
   try {
     await query(
       `UPDATE DONATION 
        SET contact_info = NVL(:contact_info, contact_info),
+           purpose = NVL(:purpose, purpose),
            amount_or_value = NVL(:amount_or_value, amount_or_value),
            donation_date = CASE WHEN :donation_date IS NULL THEN donation_date ELSE TO_DATE(:donation_date, 'YYYY-MM-DD') END,
            donation_type = NVL(:donation_type, donation_type)
        WHERE donation_id = :donation_id`,
       {
         contact_info: contact_info || null, 
+        purpose: purpose || null,
         amount_or_value: amount_or_value || null, 
         donation_date: donation_date || null,
         donation_type: donation_type || null,
@@ -79,3 +86,5 @@ router.put('/:id', requireRole(['admin', 'staff']), async (req, res) => {
 });
 
 export default router;
+
+
