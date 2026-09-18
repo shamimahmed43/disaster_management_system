@@ -20,6 +20,8 @@ type Disaster = {
   SEVERITY_LEVEL: string;
   STATUS: string;
   DURATION_DAYS: number | null;
+  TOTAL_SHELTERS?: number;
+  TOTAL_VOLUNTEERS?: number;
 };
 
 const TYPE_ICONS: Record<string, string> = {
@@ -45,8 +47,9 @@ export default function DisastersPage() {
 
   const { isInternal, isAdmin, isStaff } = useAuth();
   const canEdit = isAdmin || isStaff;
-  
   const [editDisaster, setEditDisaster] = useState<Disaster | null>(null);
+  const [releaseCount, setReleaseCount] = useState<number>(0);
+  const [fetchingRelease, setFetchingRelease] = useState(false);
   const [editForm, setEditForm] = useState({
     disaster_name: "",
     disaster_type: "",
@@ -59,6 +62,49 @@ export default function DisastersPage() {
   });
   const [isSaving, setIsSaving] = useState(false);
 
+  // Stats Modals State
+  const [viewingSheltersFor, setViewingSheltersFor] = useState<Disaster | null>(null);
+  const [disasterShelters, setDisasterShelters] = useState<any[]>([]);
+  const [loadingShelters, setLoadingShelters] = useState(false);
+
+  const [viewingVolsFor, setViewingVolsFor] = useState<Disaster | null>(null);
+  const [disasterVols, setDisasterVols] = useState<any[]>([]);
+  const [loadingVols, setLoadingVols] = useState(false);
+
+  async function openSheltersModal(d: Disaster) {
+    setViewingSheltersFor(d);
+    setLoadingShelters(true);
+    try {
+      const token = localStorage.getItem("dms_token") || "";
+      const res = await fetch(`${API}/disasters/${encodeURIComponent(d.DISASTER_NAME)}/shelters`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const json = await res.json();
+      setDisasterShelters(json.data || []);
+    } catch (err) {
+      toast.error("Failed to load shelters");
+    } finally {
+      setLoadingShelters(false);
+    }
+  }
+
+  async function openVolsModal(d: Disaster) {
+    setViewingVolsFor(d);
+    setLoadingVols(true);
+    try {
+      const token = localStorage.getItem("dms_token") || "";
+      const res = await fetch(`${API}/disasters/${encodeURIComponent(d.DISASTER_NAME)}/volunteers-to-release`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const json = await res.json();
+      setDisasterVols(json.data || []);
+    } catch (err) {
+      toast.error("Failed to load volunteers");
+    } finally {
+      setLoadingVols(false);
+    }
+  }
+
   function openEdit(d: Disaster) {
     setEditDisaster(d);
     setEditForm({
@@ -67,10 +113,21 @@ export default function DisastersPage() {
       division: d.DIVISION || "",
       district: d.DISTRICT || "",
       start_date: d.START_DATE ? d.START_DATE.split('T')[0] : "",
+      end_date: d.END_DATE ? d.END_DATE.split('T')[0] : "",
       severity_level: d.SEVERITY_LEVEL || "",
-      status: d.STATUS || "",
-      end_date: d.END_DATE ? d.END_DATE.split('T')[0] : ""
+      status: d.STATUS || ""
     });
+    
+    // Fetch volunteers that would be released
+    setFetchingRelease(true);
+    const token = localStorage.getItem("dms_token") || "";
+    fetch(`${API}/disasters/${encodeURIComponent(d.DISASTER_NAME)}/volunteers-to-release`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(r => r.json())
+      .then(res => setReleaseCount(res.count || 0))
+      .catch(() => setReleaseCount(0))
+      .finally(() => setFetchingRelease(false));
   }
 
   async function handleSaveEdit(e: React.FormEvent) {
@@ -92,7 +149,6 @@ export default function DisastersPage() {
           district: editForm.district,
           start_date: editForm.start_date,
           end_date: editForm.end_date || null,
-          severity_level: editForm.severity_level,
           status: editForm.status
         }),
       });
@@ -221,7 +277,7 @@ export default function DisastersPage() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr>
-                {["Name", "Type", "Severity", "Division", "District", "Start Date", "Status"].map((h) => (
+                {["Name", "Type", "Division", "District", "Shelters", "Vols", "Start Date", "Status"].map((h) => (
                   <th key={h} className="p-4 font-mono text-xs text-gray-500 uppercase tracking-wider font-bold bg-azure border-b border-gray-200 first:rounded-tl-xl last:rounded-tr-xl">
                     {h}
                   </th>
@@ -262,17 +318,28 @@ export default function DisastersPage() {
                           {d.DISASTER_TYPE}
                         </span>
                       </td>
-                      <td className="p-4">
-                        <span className={`inline-flex items-center px-3 py-1 rounded-lg font-bold text-xs uppercase tracking-wide ${
-                          d.SEVERITY_LEVEL === "High" ? "bg-red-100 text-red-700" :
-                          d.SEVERITY_LEVEL === "Medium" ? "bg-yellow-100 text-yellow-700" :
-                          "bg-green-100 text-green-700"
-                        }`}>
-                          {d.SEVERITY_LEVEL}
-                        </span>
-                      </td>
                       <td className="p-4 text-gray-600">{d.DIVISION}</td>
                       <td className="p-4 text-gray-600">{d.DISTRICT}</td>
+                      <td className="p-4">
+                        <button
+                          type="button"
+                          onClick={() => openSheltersModal(d)}
+                          className="flex items-center gap-1 bg-gray-100 text-gray-700 px-2 py-1 rounded hover:bg-gray-200 transition-colors cursor-pointer"
+                        >
+                          <span className="material-symbols-outlined icon-thick text-[14px]">night_shelter</span>
+                          <span className="font-bold text-xs">{d.TOTAL_SHELTERS || 0}</span>
+                        </button>
+                      </td>
+                      <td className="p-4">
+                        <button
+                          type="button"
+                          onClick={() => openVolsModal(d)}
+                          className="flex items-center gap-1 bg-blue-50 text-cobalt px-2 py-1 rounded hover:bg-blue-100 transition-colors cursor-pointer"
+                        >
+                          <span className="material-symbols-outlined icon-thick text-[14px]">support_agent</span>
+                          <span className="font-bold text-xs">{d.TOTAL_VOLUNTEERS || 0}</span>
+                        </button>
+                      </td>
                       <td className="p-4 font-mono text-gray-600">
                         {formatDate(d.START_DATE)}
                       </td>
@@ -303,6 +370,20 @@ export default function DisastersPage() {
       </div>
       {/* Edit Modal */}
       <Modal isOpen={!!editDisaster} onClose={() => setEditDisaster(null)} title="Edit Disaster Event">
+        {editForm.end_date && releaseCount > 0 && (
+          <div className="mb-4 bg-yellow-50 border border-yellow-200 rounded-xl p-4 flex items-start gap-3">
+            <span className="material-symbols-outlined text-yellow-600 shrink-0 mt-0.5">warning</span>
+            <div>
+              <h4 className="font-bold text-yellow-800 text-sm">Automated Release Trigger</h4>
+              <p className="text-xs text-yellow-700 mt-1">
+                By setting an End Date, this disaster will be marked as resolved. 
+                <strong className="block mt-1 bg-yellow-200/50 inline-block px-2 py-0.5 rounded">
+                  {releaseCount} volunteer(s) currently deployed to shelters in this disaster will be automatically released to &quot;Available&quot; status.
+                </strong>
+              </p>
+            </div>
+          </div>
+        )}
         <form onSubmit={handleSaveEdit} className="space-y-4 max-h-[70vh] overflow-y-auto px-1 custom-scrollbar">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -347,18 +428,6 @@ export default function DisastersPage() {
               <input type="date" value={editForm.end_date} onChange={e => setEditForm(p => ({ ...p, end_date: e.target.value }))}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none focus:border-cobalt font-mono text-sm" />
             </div>
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">Severity Level</label>
-            <select
-              value={editForm.severity_level}
-              onChange={e => setEditForm(p => ({ ...p, severity_level: e.target.value }))}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none focus:border-cobalt"
-            >
-              <option value="Low">Low</option>
-              <option value="Medium">Medium</option>
-              <option value="High">High</option>
-            </select>
-          </div>
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-1">Status</label>
             <select
@@ -379,6 +448,114 @@ export default function DisastersPage() {
           </div>
         </form>
       </Modal>
+
+      {/* Shelters Modal */}
+      {viewingSheltersFor && (
+        <Modal 
+          isOpen={true} 
+          onClose={() => {
+            setViewingSheltersFor(null);
+            setDisasterShelters([]);
+          }}
+          title={`Shelters in ${viewingSheltersFor.DISASTER_NAME}`}
+        >
+          <div className="p-6">
+            {loadingShelters ? (
+              <div className="flex justify-center p-8 text-cobalt">
+                <span className="material-symbols-outlined icon-thick text-[32px] animate-spin">progress_activity</span>
+              </div>
+            ) : disasterShelters.length === 0 ? (
+              <div className="text-center p-8 text-gray-500 font-bold bg-gray-50 rounded-xl border border-gray-100">
+                <span className="material-symbols-outlined icon-thick text-[48px] text-gray-300 mb-2">night_shelter</span>
+                <p>No shelters found.</p>
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
+                {disasterShelters.map((s, i) => (
+                  <div key={i} className="flex flex-col gap-1 p-4 bg-gray-50 border border-gray-200 rounded-xl">
+                    <div className="flex justify-between items-start">
+                      <div className="font-bold text-black flex items-center gap-2">
+                        {s.SHELTER_NAME}
+                        <span className="text-xs font-mono text-gray-400 bg-white border border-gray-200 px-1.5 py-0.5 rounded">{s.SHELTER_ID}</span>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                        s.CURRENT_STATUS === "Full" ? "bg-red-100 text-red-700" :
+                        s.CURRENT_STATUS === "Closed" ? "bg-gray-200 text-gray-600" :
+                        "bg-green-100 text-green-700"
+                      }`}>{s.CURRENT_STATUS}</span>
+                    </div>
+                    <div className="text-xs text-gray-500 font-bold flex gap-3">
+                      <span className="flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">location_on</span> {s.ADDRESS_LINE || "No address"}</span>
+                      <span className="flex items-center gap-1"><span className="material-symbols-outlined text-[14px]">group</span> {s.CAPACITY ? `Capacity: ${s.CAPACITY}` : "Capacity N/A"}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setViewingSheltersFor(null);
+                  setDisasterShelters([]);
+                }}
+                className="px-4 py-2 font-bold text-gray-600 hover:text-black transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Volunteers Modal */}
+      {viewingVolsFor && (
+        <Modal 
+          isOpen={true} 
+          onClose={() => {
+            setViewingVolsFor(null);
+            setDisasterVols([]);
+          }}
+          title={`Volunteers at ${viewingVolsFor.DISASTER_NAME}`}
+        >
+          <div className="p-6">
+            {loadingVols ? (
+              <div className="flex justify-center p-8 text-cobalt">
+                <span className="material-symbols-outlined icon-thick text-[32px] animate-spin">progress_activity</span>
+              </div>
+            ) : disasterVols.length === 0 ? (
+              <div className="text-center p-8 text-gray-500 font-bold bg-gray-50 rounded-xl border border-gray-100">
+                <span className="material-symbols-outlined icon-thick text-[48px] text-gray-300 mb-2">person_off</span>
+                <p>No volunteers deployed here.</p>
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
+                {disasterVols.map((v, i) => (
+                  <div key={i} className="flex flex-col gap-1 p-4 bg-gray-50 border border-gray-200 rounded-xl">
+                    <div className="font-bold text-black">{v.PERSON_NAME}</div>
+                    <div className="text-xs text-gray-500 font-bold flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[14px]">night_shelter</span> 
+                      Deployed at: {v.SHELTER_NAME}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setViewingVolsFor(null);
+                  setDisasterVols([]);
+                }}
+                className="px-4 py-2 font-bold text-gray-600 hover:text-black transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
 
     </div>
   );

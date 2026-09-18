@@ -1,0 +1,3 @@
+set long 10000;
+SELECT trigger_body FROM ALL_TRIGGERS WHERE trigger_name = 'TRG_VOLUNTEER_STATUS_UPDATE';
+EXIT;

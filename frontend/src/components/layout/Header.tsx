@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
@@ -91,6 +92,7 @@ const ENTITY_CONFIG: Record<
 export default function Header() {
   const pathname = usePathname();
   const router = useRouter();
+  const { user, logout } = useAuth();
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -274,8 +276,7 @@ export default function Header() {
         </Link>
         <button
           onClick={() => {
-            localStorage.removeItem("dms_token");
-            localStorage.removeItem("dms_user");
+            logout();
             router.push("/admin/login");
           }}
           className="text-blue-200 hover:text-white bg-cobalt-dark hover:bg-cobalt-light transition-colors rounded-xl p-2.5 inline-flex"

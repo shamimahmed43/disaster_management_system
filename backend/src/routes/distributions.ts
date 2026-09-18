@@ -52,14 +52,13 @@ router.get('/', async (req, res) => {
   }
 });
 
-// POST /api/distributions
+// POST /api/distributions - Create new distribution record
 router.post('/', requireRole(['admin', 'staff']), async (req, res) => {
-  const { distribution_id, warehouse_id, person_id, distribution_date, quantity } = req.body;
-  if (!distribution_id || !warehouse_id || !person_id || !quantity) {
-    return res.status(422).json({ error: 'Distribution ID, Warehouse, Personnel, and Quantity are required' });
+  const { warehouse_id, person_id, shelter_id, vehicle_id, distribution_date, quantity, status } = req.body;
+  if (!warehouse_id || !person_id || !quantity) {
+    return res.status(422).json({ error: 'Warehouse, Personnel, and Quantity are required' });
   }
 
-  const id = String(distribution_id).trim();
   const wId = String(warehouse_id).trim();
   const pId = String(person_id).trim();
   const qty = Number(quantity);
@@ -69,20 +68,39 @@ router.post('/', requireRole(['admin', 'staff']), async (req, res) => {
   }
 
   const distDate = (distribution_date && String(distribution_date).trim()) ? String(distribution_date).trim() : new Date().toISOString().slice(0, 10);
+  const distStatus = (status && String(status).trim()) ? String(status).trim() : 'Completed';
+  const shId = shelter_id ? String(shelter_id).trim() : null;
+  const vhId = vehicle_id ? String(vehicle_id).trim() : null;
 
   try {
+    // Generate next formatted distribution ID from database sequence
+    const [seqRow] = await query<any>(
+      `SELECT 'DIST' || LPAD(seq_distribution_num.NEXTVAL, 4, '0') AS new_id FROM DUAL`
+    );
+    const generatedId: string = seqRow.NEW_ID;
+
+    // Insert distribution record
     await query(
-      `INSERT INTO DISTRIBUTION (distribution_id, warehouse_id, person_id, distribution_date, quantity)
-       VALUES (:distribution_id, :warehouse_id, :person_id, TO_DATE(:distribution_date, 'YYYY-MM-DD'), :quantity)`,
-      { distribution_id: id, warehouse_id: wId, person_id: pId, distribution_date: distDate, quantity: qty }
+      `INSERT INTO DISTRIBUTION (distribution_id, warehouse_id, person_id, shelter_id, vehicle_id, distribution_date, quantity, status)
+       VALUES (:distribution_id, :warehouse_id, :person_id, :shelter_id, :vehicle_id, TO_DATE(:distribution_date, 'YYYY-MM-DD'), :quantity, :status)`,
+      {
+        distribution_id: generatedId,
+        warehouse_id: wId,
+        person_id: pId,
+        shelter_id: shId,
+        vehicle_id: vhId,
+        distribution_date: distDate,
+        quantity: qty,
+        status: distStatus
+      }
     );
 
-    res.status(201).json({ message: 'Distribution recorded successfully', data: { distribution_id: id } });
+    res.status(201).json({
+      message: 'Distribution recorded successfully',
+      data: { distribution_id: generatedId }
+    });
   } catch (err: any) {
     console.error('[Distributions] POST error:', err);
-    if (err.errorNum === 1 || (err.message && err.message.includes('ORA-00001'))) {
-      return res.status(409).json({ error: `Distribution ID "${id}" already exists.` });
-    }
     if (err.errorNum === 2291 || (err.message && err.message.includes('ORA-02291'))) {
       return res.status(422).json({ error: 'Selected Warehouse or Personnel is invalid (foreign key not found).' });
     }
@@ -90,6 +108,7 @@ router.post('/', requireRole(['admin', 'staff']), async (req, res) => {
     res.status(500).json({ error: msg });
   }
 });
+
 
 // PUT /api/distributions/:id
 router.put('/:id', requireRole(['admin', 'staff']), async (req, res) => {

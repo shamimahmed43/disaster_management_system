@@ -35,19 +35,25 @@ router.get('/', requireRole(['admin', 'staff']), async (req: Request, res: Respo
         E.person_id,
         E.name,
         E.phone,
-        E.designation,
         E.base_location,
         E.supervisor_id,
         M.name AS supervisor_name,
-        CASE WHEN V.person_id IS NOT NULL THEN 'Volunteer'
+        CASE WHEN VOL.person_id IS NOT NULL THEN 'Volunteer'
              WHEN MS.person_id IS NOT NULL THEN 'Medical Staff'
              ELSE 'Personnel' END AS personnel_type,
-        V.team AS volunteer_team,
+        CASE 
+             WHEN (SELECT COUNT(*) FROM DEPLOYED_AT DA WHERE DA.person_id = E.person_id) > 0 THEN 'Deployed'
+             ELSE NVL(VOL.availability_status, 'Available') 
+        END AS availability_status,
+        VOL.skill AS volunteer_skill,
         MS.specialization AS medical_specialization,
-        MS.since_date AS medical_since_date
+        MS.since_date AS medical_since_date,
+        (SELECT S.shelter_name FROM DEPLOYED_AT DA
+         JOIN SHELTER S ON DA.shelter_id = S.shelter_id
+         WHERE DA.person_id = E.person_id AND ROWNUM = 1) AS deployed_shelter_name
       FROM PERSONNEL E
       LEFT JOIN PERSONNEL M ON E.supervisor_id = M.person_id
-      LEFT JOIN VOLUNTEER V ON E.person_id = V.person_id
+      LEFT JOIN VOLUNTEER VOL ON E.person_id = VOL.person_id
       LEFT JOIN MEDICAL_STAFF MS ON E.person_id = MS.person_id
       ORDER BY E.name
     `);
@@ -62,9 +68,14 @@ router.get('/', requireRole(['admin', 'staff']), async (req: Request, res: Respo
 router.get('/volunteers', requireRole(['admin', 'staff']), async (req: Request, res: Response) => {
   try {
     const rows = await query(`
-      SELECT P.person_id, P.name, P.phone, P.designation, P.base_location, V.team
-      FROM VOLUNTEER V
-      JOIN PERSONNEL P ON V.person_id = P.person_id
+      SELECT P.person_id, P.name, P.phone, P.base_location,
+             NVL(VOL.availability_status, 'Available') AS availability_status,
+             VOL.skill,
+             (SELECT S.shelter_name FROM DEPLOYED_AT DA
+              JOIN SHELTER S ON DA.shelter_id = S.shelter_id
+              WHERE DA.person_id = P.person_id AND ROWNUM = 1) AS deployed_shelter_name
+      FROM VOLUNTEER VOL
+      JOIN PERSONNEL P ON VOL.person_id = P.person_id
       ORDER BY P.name
     `);
     res.json({ data: rows });
@@ -77,7 +88,7 @@ router.get('/volunteers', requireRole(['admin', 'staff']), async (req: Request, 
 router.get('/medical', requireRole(['admin', 'staff']), async (req: Request, res: Response) => {
   try {
     const rows = await query(`
-      SELECT P.person_id, P.name, P.phone, P.designation, P.base_location, MS.specialization, MS.since_date
+      SELECT P.person_id, P.name, P.phone, P.base_location, MS.specialization, MS.since_date
       FROM MEDICAL_STAFF MS
       JOIN PERSONNEL P ON MS.person_id = P.person_id
       ORDER BY P.name
@@ -97,16 +108,16 @@ router.post('/', requireRole(['admin', 'staff']), async (req: Request, res: Resp
   try {
     // Insert base personnel record
     await query(
-      `INSERT INTO PERSONNEL (person_id, name, phone, designation, base_location, supervisor_id)
-       VALUES (:person_id, :name, :phone, :designation, :base_location, :supervisor_id)`,
-      [person_id, name, phone || null, designation || null, base_location || null, supervisor_id || null]
+      `INSERT INTO PERSONNEL (person_id, name, phone, base_location, supervisor_id)
+       VALUES (:person_id, :name, :phone, :base_location, :supervisor_id)`,
+      [person_id, name, phone || null, base_location || null, supervisor_id || null]
     );
 
     // If volunteer: also insert into VOLUNTEER (ISA)
     if (type === 'volunteer') {
       await query(
-        `INSERT INTO VOLUNTEER (person_id, team) VALUES (:person_id, :team)`,
-        [person_id, team || 'General']
+        `INSERT INTO VOLUNTEER (person_id, availability_status, skill) VALUES (:person_id, 'Available', :skill)`,
+        [person_id, team || null]
       );
     }
     // If medical staff: also insert into MEDICAL_STAFF (ISA)
@@ -128,7 +139,7 @@ router.post('/', requireRole(['admin', 'staff']), async (req: Request, res: Resp
 
 // PUT /api/personnel/:id
 router.put('/:id', requireAnyAuth, async (req: Request, res: Response) => {
-  const { phone, designation, base_location, team } = req.body;
+  const { phone, base_location, skill, availability_status } = req.body;
   const person_id = req.params.id;
   const user = req.user as AuthPayload;
 
@@ -141,18 +152,19 @@ router.put('/:id', requireAnyAuth, async (req: Request, res: Response) => {
     await query(
       `UPDATE PERSONNEL 
        SET phone = NVL(:phone, phone),
-           designation = NVL(:designation, designation),
            base_location = NVL(:base_location, base_location)
        WHERE person_id = :person_id`,
-      [phone || null, designation || null, base_location || null, person_id]
+      [phone || null, base_location || null, person_id]
     );
 
-    if (team) {
+    // Update volunteer-specific fields if applicable
+    if (skill !== undefined || availability_status !== undefined) {
       await query(
         `UPDATE VOLUNTEER 
-         SET team = :team 
+         SET skill = NVL(:skill, skill),
+             availability_status = NVL(:availability_status, availability_status)
          WHERE person_id = :person_id`,
-        [team, person_id]
+        [skill || null, availability_status || null, person_id]
       );
     }
 
@@ -207,9 +219,18 @@ router.post('/deploy', requireRole(['admin', 'staff']), async (req: Request, res
   if (!person_id || !shelter_id) return res.status(422).json({ error: 'person_id and shelter_id are required' });
 
   try {
-    // Check if already deployed
-    const existing = await query(`SELECT 1 FROM DEPLOYED_AT WHERE person_id = :1 AND shelter_id = :2`, [person_id, shelter_id]);
-    if (existing.length > 0) return res.status(409).json({ error: 'Personnel is already deployed to this shelter' });
+    // Check if already deployed to ANY shelter (not just this one)
+    const existingAnywhere = await query(
+      `SELECT S.shelter_name FROM DEPLOYED_AT DA
+       JOIN SHELTER S ON DA.shelter_id = S.shelter_id
+       WHERE DA.person_id = :1 AND ROWNUM = 1`,
+      [person_id]
+    );
+    if (existingAnywhere.length > 0) {
+      return res.status(409).json({
+        error: `This person is already deployed at "${(existingAnywhere[0] as any).SHELTER_NAME}". Please undeploy them first before reassigning.`
+      });
+    }
 
     await query(
       `INSERT INTO DEPLOYED_AT (person_id, shelter_id, deployment_date) VALUES (:1, :2, SYSDATE)`,

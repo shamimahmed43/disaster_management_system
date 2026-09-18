@@ -33,15 +33,13 @@ END;
 -- Trigger: Update Personnel (Volunteer) Status based on Deployment
 CREATE OR REPLACE TRIGGER trg_volunteer_status_update
 AFTER INSERT OR UPDATE OR DELETE ON DEPLOYED_AT
-DECLARE
-  PRAGMA AUTONOMOUS_TRANSACTION;
+FOR EACH ROW
 BEGIN
-  UPDATE VOLUNTEER v
-  SET availability_status = CASE
-    WHEN EXISTS (SELECT 1 FROM DEPLOYED_AT d WHERE d.person_id = v.person_id) THEN 'Deployed'
-    ELSE 'Available'
-  END;
-  COMMIT;
+  IF DELETING THEN
+    UPDATE VOLUNTEER SET availability_status = 'Available' WHERE person_id = :OLD.person_id;
+  ELSIF INSERTING THEN
+    UPDATE VOLUNTEER SET availability_status = 'Deployed' WHERE person_id = :NEW.person_id;
+  END IF;
 END;
 /
 

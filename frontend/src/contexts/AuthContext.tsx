@@ -79,11 +79,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loading,
       login,
       logout,
-      isAdmin: user?.role === "admin",
-      isStaff: user?.role === "staff",
-      isVolunteer: user?.role === "volunteer",
-      isMedical: user?.role === "medical_staff",
-      isInternal: user?.role === "admin" || user?.role === "staff" || user?.role === "volunteer" || user?.role === "medical_staff",
+      isAdmin: user?.role?.toLowerCase() === "admin",
+      isStaff: user?.role?.toLowerCase() === "staff",
+      isVolunteer: user?.role?.toLowerCase() === "volunteer",
+      isMedical: user?.role?.toLowerCase() === "medical_staff",
+      isInternal: ["admin", "staff", "volunteer", "medical_staff"].includes(user?.role?.toLowerCase() || ""),
     }}>
       {children}
     </AuthContext.Provider>

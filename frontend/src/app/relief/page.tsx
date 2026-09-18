@@ -41,7 +41,6 @@ export default function ReliefPage() {
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [form, setForm] = useState({
-    distribution_id: "",
     warehouse_id: "",
     person_id: "",
     shelter_id: "",
@@ -122,7 +121,6 @@ export default function ReliefPage() {
 
   const openAdd = () => {
     setForm({
-      distribution_id: "",
       warehouse_id: "",
       person_id: "",
       shelter_id: "",
@@ -137,8 +135,8 @@ export default function ReliefPage() {
   };
 
   async function handleSubmit() {
-    if (!form.distribution_id.trim() || !form.warehouse_id || !form.person_id || !form.quantity) {
-      setSubmitError("Distribution ID, Warehouse, Personnel, and Quantity are required.");
+    if (!form.warehouse_id || !form.person_id || !form.quantity) {
+      setSubmitError("Warehouse, Personnel, and Quantity are required.");
       return;
     }
     const qtyNum = parseInt(form.quantity);
@@ -150,7 +148,6 @@ export default function ReliefPage() {
     setSubmitError(null);
     try {
       await createDistribution({
-        distribution_id: form.distribution_id.trim(),
         warehouse_id: form.warehouse_id,
         person_id: form.person_id,
         shelter_id: form.shelter_id || null,
@@ -166,7 +163,6 @@ export default function ReliefPage() {
         setIsDrawerOpen(false);
         setSubmitSuccess(false);
         setForm({
-          distribution_id: "",
           warehouse_id: "",
           person_id: "",
           shelter_id: "",
@@ -340,10 +336,13 @@ export default function ReliefPage() {
           )}
           {submitError && <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-red-600 text-sm font-bold shadow-sm">{submitError}</div>}
 
-          <div>
-            <label className="block font-mono text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Distribution ID *</label>
-            <input type="text" placeholder="e.g., DIST007" value={form.distribution_id} onChange={(e) => setField("distribution_id", e.target.value)}
-              className="w-full bg-gray-50 border border-gray-200 focus:border-cobalt focus:ring-2 focus:ring-azure rounded-xl px-4 py-3 text-sm font-medium text-black placeholder:text-gray-400 outline-none transition-all" />
+          {/* Auto-generated ID notice */}
+          <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
+            <span className="material-symbols-outlined icon-thick text-cobalt text-[18px]">autorenew</span>
+            <div>
+              <div className="font-mono text-xs font-bold text-cobalt uppercase tracking-wider">Distribution ID</div>
+              <div className="text-xs text-gray-500 font-medium mt-0.5">Auto-generated via Oracle Sequence <span className="font-mono font-bold">seq_distribution_num</span></div>
+            </div>
           </div>
           
           <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex flex-col gap-4">

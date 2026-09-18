@@ -12,14 +12,14 @@ type PersonnelRecord = {
   NAME: string;
   PHONE: string;
   AVAILABILITY_STATUS: string;
-  DESIGNATION: string;
+  DEPLOYED_SHELTER_NAME: string;
   BASE_LOCATION: string;
   SUPERVISOR_ID: string;
   SUPERVISOR_NAME: string;
   PERSONNEL_TYPE: string;
-  TEAM_ID: string;
-  SKILL: string;
+  VOLUNTEER_SKILL: string;
   MEDICAL_SPECIALIZATION: string;
+  MEDICAL_SINCE_DATE: string;
 };
 
 const EMPTY_FORM = {
@@ -320,22 +320,28 @@ export default function PersonnelPage() {
                         <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg font-bold text-xs uppercase tracking-wide ${
                           p.AVAILABILITY_STATUS === "Available" ? "bg-green-100 text-green-700" : 
                           p.AVAILABILITY_STATUS === "Deployed" ? "bg-blue-100 text-blue-700" :
-                          "bg-yellow-100 text-yellow-700"
+                          "bg-green-100 text-green-700"
                         }`}>
-                          {p.AVAILABILITY_STATUS || "Unknown"}
+                          <span className={`w-1.5 h-1.5 rounded-full ${
+                            p.AVAILABILITY_STATUS === "Deployed" ? "bg-blue-500" : "bg-green-500 animate-pulse"
+                          }`} />
+                          {p.AVAILABILITY_STATUS === "Deployed" && p.DEPLOYED_SHELTER_NAME
+                            ? `Deployed @ ${p.DEPLOYED_SHELTER_NAME}`
+                            : (p.AVAILABILITY_STATUS || "Available")}
                         </span>
                       </td>
                       <td className="p-4 text-gray-600">
                         {p.MEDICAL_SPECIALIZATION
                           ? <span className="font-bold text-cobalt">Dr. {p.MEDICAL_SPECIALIZATION}</span>
-                          : p.DESIGNATION || "—"}
+                          : "—"}
                       </td>
                       <td className="p-4 text-gray-600">
                         {p.PERSONNEL_TYPE === "Volunteer" ? (
                           <div>
-                            <span className="block">{p.SKILL ? `Skill: ${p.SKILL}` : "—"}</span>
-                            <span className="font-mono text-xs text-gray-400">{p.TEAM_ID ? `Team: ${p.TEAM_ID}` : ""}</span>
+                            <span className="block">{p.VOLUNTEER_SKILL ? `Skill: ${p.VOLUNTEER_SKILL}` : "—"}</span>
                           </div>
+                        ) : p.PERSONNEL_TYPE === "Medical Staff" ? (
+                          <span className="block text-xs font-mono">{p.MEDICAL_SINCE_DATE ? `Since: ${new Date(p.MEDICAL_SINCE_DATE).toLocaleDateString()}` : "—"}</span>
                         ) : "—"}
                       </td>
                       <td className="p-4 font-mono text-gray-600">{p.PHONE || "—"}</td>
@@ -583,11 +589,21 @@ export default function PersonnelPage() {
 
             <div className="bg-white rounded-xl border border-gray-200 p-4">
               <h4 className="font-mono text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">New Deployment</h4>
+              {deployments.length > 0 && (
+                <div className="mb-3 bg-orange-50 border border-orange-200 rounded-lg p-3 flex items-start gap-2">
+                  <span className="material-symbols-outlined text-orange-500 text-[18px] shrink-0 mt-0.5">warning</span>
+                  <p className="text-xs font-bold text-orange-700">
+                    This person is already deployed at <strong>{deployments[0]?.SHELTER_NAME}</strong>. 
+                    Undeploy them first before assigning to a new shelter.
+                  </p>
+                </div>
+              )}
               <div className="flex gap-2">
                 <select
                   value={selectedShelterId}
                   onChange={(e) => setSelectedShelterId(e.target.value)}
-                  className="flex-1 bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-cobalt"
+                  disabled={deployments.length > 0}
+                  className="flex-1 bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-cobalt disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <option value="">-- Select Shelter --</option>
                   {shelters.map(s => (
@@ -596,7 +612,7 @@ export default function PersonnelPage() {
                 </select>
                 <button
                   onClick={handleDeploy}
-                  disabled={isDeploying || !selectedShelterId}
+                  disabled={isDeploying || !selectedShelterId || deployments.length > 0}
                   className="px-4 py-2 bg-cobalt text-white rounded-lg font-bold text-sm hover:bg-cobalt-dark disabled:opacity-50"
                 >
                   Deploy

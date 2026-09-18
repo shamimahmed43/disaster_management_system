@@ -50,13 +50,6 @@ const NAV_SECTIONS: NavSection[] = [
       { href: "/medical", label: "Medical Staff", icon: "medical_services" },
     ],
   },
-  {
-    title: "System",
-    items: [
-      { href: "/users", label: "User Approvals", icon: "how_to_reg", adminOnly: true },
-      { href: "/query-builder", label: "SQL Queries", icon: "manage_search", adminOnly: true },
-    ],
-  },
 ];
 
 type DBStatus = "checking" | "connected" | "disconnected";

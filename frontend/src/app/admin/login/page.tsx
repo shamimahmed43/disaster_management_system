@@ -4,11 +4,13 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import TacticalAuthLayout from "@/components/layout/TacticalAuthLayout";
+import { useAuth } from "@/contexts/AuthContext";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
 export default function AdminLoginPage() {
   const router = useRouter();
+  const { login } = useAuth();
   const [form, setForm] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,8 +35,7 @@ export default function AdminLoginPage() {
       if (!res.ok) throw new Error(data.error || "Login failed.");
       
       if (data.data?.token) {
-        localStorage.setItem("dms_token", data.data.token);
-        localStorage.setItem("dms_user", JSON.stringify(data.data));
+        login(data.data);
       }
       router.push("/dashboard");
     } catch (err: any) {

@@ -195,38 +195,6 @@ INSERT INTO DISTRIBUTION VALUES ('DIST006','WH005','PER005',TO_DATE('2026-05-05'
 COMMIT;
 
 -- ─────────────────────────────────────────────────────────────
--- TRIGGERS (compile using current schema)
--- ─────────────────────────────────────────────────────────────
-CREATE OR REPLACE TRIGGER trg_shelter_status_update
-AFTER INSERT OR UPDATE OR DELETE ON RESIDES_IN
-DECLARE
-  PRAGMA AUTONOMOUS_TRANSACTION;
-BEGIN
-  UPDATE SHELTER s
-  SET current_status = CASE 
-    WHEN s.capacity <= (SELECT COUNT(*) FROM RESIDES_IN r WHERE r.shelter_id = s.shelter_id AND r.checkout_date IS NULL) THEN 'Full'
-    ELSE 'Open'
-  END;
-  COMMIT;
-END;
-/
-
-CREATE OR REPLACE TRIGGER trg_volunteer_status_update
-AFTER INSERT OR UPDATE OR DELETE ON DEPLOYED_AT
-DECLARE
-  PRAGMA AUTONOMOUS_TRANSACTION;
-BEGIN
-  UPDATE VOLUNTEER v
-  SET team = CASE
-    WHEN EXISTS (SELECT 1 FROM DEPLOYED_AT d WHERE d.person_id = v.person_id) THEN
-      (SELECT NVL(v.team, 'Deployed') FROM DUAL)
-    ELSE v.team
-  END;
-  COMMIT;
-END;
-/
-
--- ─────────────────────────────────────────────────────────────
 -- ADMIN USER (password: "Admin@2026")
 -- ─────────────────────────────────────────────────────────────
 INSERT INTO APP_USER (user_id, email, password_hash, full_name, phone, role, is_verified, otp_code, otp_expiry, created_at, victim_id, person_id)

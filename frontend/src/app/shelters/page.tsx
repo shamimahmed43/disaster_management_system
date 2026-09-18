@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useApi } from "@/hooks/useApi";
-import { getShelters, createShelter } from "@/services/api";
+import { getShelters, createShelter, getShelterPersonnel } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { Modal } from "@/components/ui/Modal";
 import { toast } from "react-hot-toast";
@@ -20,6 +20,7 @@ type Shelter = {
   CAPACITY: number;
   CURRENT_OCCUPANCY: number;
   AVAILABLE_CAPACITY: number;
+  DEPLOYED_VOLUNTEERS: number;
 };
 
 export default function SheltersPage() {
@@ -86,6 +87,28 @@ export default function SheltersPage() {
     }
   }
 
+  // CTE Report State
+  const [cteReport, setCteReport] = useState<any[] | null>(null);
+  const [loadingCte, setLoadingCte] = useState(false);
+  const [cteError, setCteError] = useState<string | null>(null);
+
+  async function loadCteReport() {
+    setLoadingCte(true);
+    setCteError(null);
+    try {
+      const res = await fetch(`${API}/shelters/cte-report`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('dms_token')}` }
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Failed to fetch CTE report');
+      setCteReport(json.data);
+    } catch (err: any) {
+      setCteError(err.message);
+    } finally {
+      setLoadingCte(false);
+    }
+  }
+
   function openEdit(s: Shelter) {
     setEditShelter(s);
     setEditForm({
@@ -122,6 +145,23 @@ export default function SheltersPage() {
       toast.error(err.message);
     } finally {
       setIsSavingEdit(false);
+    }
+  }
+
+  const [viewingPersonnelFor, setViewingPersonnelFor] = useState<Shelter | null>(null);
+  const [shelterPersonnel, setShelterPersonnel] = useState<any[]>([]);
+  const [loadingPersonnel, setLoadingPersonnel] = useState(false);
+
+  async function openPersonnelModal(shelter: Shelter) {
+    setViewingPersonnelFor(shelter);
+    setLoadingPersonnel(true);
+    try {
+      const data = await getShelterPersonnel(shelter.SHELTER_ID);
+      setShelterPersonnel((data as any) || []);
+    } catch (err) {
+      toast.error("Failed to load personnel");
+    } finally {
+      setLoadingPersonnel(false);
     }
   }
 
@@ -305,14 +345,24 @@ export default function SheltersPage() {
             </div>
             <div className="flex gap-4">
               {canEdit && (
-                <button
-                  onClick={checkAlerts}
-                  disabled={loadingAlerts}
-                  className="flex items-center justify-center gap-2 px-5 py-3 bg-red-100 hover:bg-red-200 text-red-700 rounded-xl font-bold text-sm transition-colors shadow-sm"
-                >
-                  <span className="material-symbols-outlined icon-thick text-[18px]">warning</span>
-                  {loadingAlerts ? 'Checking...' : 'Check Capacity Alerts'}
-                </button>
+                <>
+                  <button
+                    onClick={loadCteReport}
+                    disabled={loadingCte}
+                    className="flex items-center justify-center gap-2 px-5 py-3 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-xl font-bold text-sm transition-colors shadow-sm"
+                  >
+                    <span className="material-symbols-outlined icon-thick text-[18px]">analytics</span>
+                    {loadingCte ? 'Loading CTE...' : 'CTE Capacity Report'}
+                  </button>
+                  <button
+                    onClick={checkAlerts}
+                    disabled={loadingAlerts}
+                    className="flex items-center justify-center gap-2 px-5 py-3 bg-red-100 hover:bg-red-200 text-red-700 rounded-xl font-bold text-sm transition-colors shadow-sm"
+                  >
+                    <span className="material-symbols-outlined icon-thick text-[18px]">warning</span>
+                    {loadingAlerts ? 'Checking...' : 'Check Capacity Alerts'}
+                  </button>
+                </>
               )}
               <button
                 onClick={() => {
@@ -423,6 +473,19 @@ export default function SheltersPage() {
                         <span className="material-symbols-outlined icon-thick text-[16px] text-gray-400">person</span>
                         {shelter.CONTACT_PERSON_NAME || "—"}
                       </div>
+                      
+                      <button 
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          openPersonnelModal(shelter);
+                        }}
+                        className="flex items-center gap-1.5 bg-blue-50 text-cobalt px-2.5 py-1 rounded-lg hover:bg-blue-100 transition-colors cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined icon-thick text-[16px]">support_agent</span>
+                        <span>{shelter.DEPLOYED_VOLUNTEERS || 0} Vols</span>
+                      </button>
                     </div>
                   </div>
                 );
@@ -555,6 +618,58 @@ export default function SheltersPage() {
           </div>
         </form>
       </Modal>
+
+      {/* CTE Report Modal */}
+      <Modal isOpen={cteReport !== null} onClose={() => setCteReport(null)} title="CTE Capacity Risk Report">
+        {cteError ? (
+          <div className="p-4 bg-red-50 text-red-700 rounded-lg font-bold">{cteError}</div>
+        ) : cteReport ? (
+          <div className="flex flex-col gap-4 max-h-[60vh] overflow-y-auto">
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-2">
+              <p className="text-sm text-cobalt font-bold flex items-center gap-2">
+                <span className="material-symbols-outlined icon-thick text-[18px]">info</span>
+                This report is generated using a SQL WITH Clause (CTE).
+              </p>
+            </div>
+            
+            {cteReport.length === 0 ? (
+              <p className="text-gray-500 font-bold p-4 text-center">No shelter data available for CTE analysis.</p>
+            ) : (
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-gray-50">
+                    <th className="p-3 text-xs font-bold text-gray-500 uppercase tracking-wider border-b">Shelter</th>
+                    <th className="p-3 text-xs font-bold text-gray-500 uppercase tracking-wider border-b">Occupancy</th>
+                    <th className="p-3 text-xs font-bold text-gray-500 uppercase tracking-wider border-b">Risk Level</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cteReport.map((row: any, i: number) => (
+                    <tr key={i} className="border-b last:border-0 hover:bg-gray-50">
+                      <td className="p-3 font-bold text-sm">{row.SHELTER_NAME}</td>
+                      <td className="p-3 text-sm">
+                        <span className="font-mono">{row.OCCUPIED}/{row.CAPACITY}</span>
+                        <span className="ml-2 text-xs text-gray-500">({row.OCCUPANCY_PCT}%)</span>
+                      </td>
+                      <td className="p-3">
+                        <span className={`px-2.5 py-1 text-xs font-bold uppercase rounded-lg ${
+                          row.RISK_LEVEL === 'CRITICAL' ? 'bg-red-100 text-red-700' :
+                          row.RISK_LEVEL === 'HIGH' ? 'bg-yellow-100 text-yellow-700' :
+                          row.RISK_LEVEL === 'NORMAL' ? 'bg-green-100 text-green-700' :
+                          'bg-gray-100 text-gray-700'
+                        }`}>
+                          {row.RISK_LEVEL}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        ) : null}
+      </Modal>
+
       {/* Alerts Modal */}
       <Modal isOpen={alerts !== null} onClose={() => setAlerts(null)} title="Shelter Capacity Alerts">
         {alertsError ? (
@@ -588,6 +703,81 @@ export default function SheltersPage() {
           </button>
         </div>
       </Modal>
+
+      {/* Personnel Modal */}
+      {viewingPersonnelFor && (
+        <Modal 
+          isOpen={true} 
+          onClose={() => {
+            setViewingPersonnelFor(null);
+            setShelterPersonnel([]);
+          }}
+          title={`Personnel at ${viewingPersonnelFor.SHELTER_NAME}`}
+        >
+          <div className="p-6">
+            {loadingPersonnel ? (
+              <div className="flex justify-center p-8 text-cobalt">
+                <span className="material-symbols-outlined icon-thick text-[32px] animate-spin">progress_activity</span>
+              </div>
+            ) : shelterPersonnel.length === 0 ? (
+              <div className="text-center p-8 text-gray-500 font-bold bg-gray-50 rounded-xl border border-gray-100">
+                <span className="material-symbols-outlined icon-thick text-[48px] text-gray-300 mb-2">person_off</span>
+                <p>No personnel deployed here.</p>
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
+                {shelterPersonnel.map((p, i) => (
+                  <div key={i} className="flex items-center justify-between p-4 bg-gray-50 border border-gray-200 rounded-xl hover:border-blue-300 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
+                        p.PERSONNEL_TYPE === "Medical Staff" ? "bg-blue-100 text-cobalt" :
+                        p.PERSONNEL_TYPE === "Volunteer" ? "bg-green-100 text-green-700" :
+                        "bg-gray-200 text-gray-600"
+                      }`}>
+                        {p.PERSONNEL_TYPE === "Medical Staff" ? (
+                          <span className="material-symbols-outlined icon-thick text-[20px]">medical_services</span>
+                        ) : (
+                          <span className="material-symbols-outlined icon-thick text-[20px]">volunteer_activism</span>
+                        )}
+                      </div>
+                      <div>
+                        <div className="font-bold text-black flex items-center gap-2">
+                          {p.NAME}
+                          <span className="text-xs font-mono text-gray-400 bg-white border border-gray-200 px-1.5 py-0.5 rounded">{p.PERSON_ID}</span>
+                        </div>
+                        <div className="text-xs font-bold text-gray-500 flex gap-2">
+                          <span>{p.PERSONNEL_TYPE}</span>
+                          •
+                          <span>{p.PHONE || "No phone"}</span>
+                        </div>
+                      </div>
+                    </div>
+                    {p.MEDICAL_SPECIALIZATION || p.VOLUNTEER_SKILL ? (
+                      <div className="text-right">
+                        <span className="text-xs font-mono font-bold text-cobalt bg-blue-50 px-2 py-1 rounded">
+                          {p.MEDICAL_SPECIALIZATION || p.VOLUNTEER_SKILL}
+                        </span>
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setViewingPersonnelFor(null);
+                  setShelterPersonnel([]);
+                }}
+                className="px-4 py-2 font-bold text-gray-600 hover:text-black transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
 
     </>
   );

@@ -7,12 +7,7 @@ WHENEVER SQLERROR CONTINUE
 
 ALTER SESSION SET CURRENT_SCHEMA = SYSTEM;
 
-PROMPT ============================================================
-PROMPT  STEP 1 — ABSTRACT DATA TYPE (Object Type)
-PROMPT ============================================================
-
--- ABSTRACT DATA TYPE: LOCATION_T
-
+-- Object Type: LOCATION_T
 CREATE OR REPLACE TYPE LOCATION_T AS OBJECT (
     latitude    VARCHAR2(30),
     longitude   VARCHAR2(30),
@@ -31,15 +26,7 @@ CREATE OR REPLACE TYPE BODY LOCATION_T AS
 END;
 /
 
-PROMPT --> LOCATION_T Object Type created.
-
-
-PROMPT ============================================================
-PROMPT  STEP 2 — FUNCTIONS (3 Business Logic Functions)
-PROMPT ============================================================
-
--- FUNCTION 1: fn_active_disaster_count
-
+-- Function: fn_active_disaster_count (returns count of active disasters)
 CREATE OR REPLACE FUNCTION fn_active_disaster_count
 RETURN NUMBER IS
     v_count NUMBER := 0;
@@ -56,31 +43,24 @@ EXCEPTION
 END fn_active_disaster_count;
 /
 
-PROMPT --> fn_active_disaster_count created.
-
-
--- FUNCTION 2: fn_shelter_occupancy_pct
-
+-- Function: fn_shelter_occupancy_pct (calculates occupancy percentage for a shelter)
 CREATE OR REPLACE FUNCTION fn_shelter_occupancy_pct (
     p_shelter_id IN VARCHAR2
 ) RETURN NUMBER IS
     v_capacity  NUMBER := 0;
     v_occupied  NUMBER := 0;
 BEGIN
-
     SELECT capacity
     INTO   v_capacity
     FROM   SHELTER
     WHERE  shelter_id = p_shelter_id;
 
-    
     SELECT COUNT(*)
     INTO   v_occupied
     FROM   RESIDES_IN
     WHERE  shelter_id    = p_shelter_id
     AND    checkout_date IS NULL;
 
-    
     IF v_capacity = 0 THEN
         RETURN 0;
     END IF;
@@ -95,11 +75,7 @@ EXCEPTION
 END fn_shelter_occupancy_pct;
 /
 
-PROMPT --> fn_shelter_occupancy_pct created.
-
-
--- FUNCTION 3: fn_total_donation_value
-
+-- Function: fn_total_donation_value (calculates sum of all donations)
 CREATE OR REPLACE FUNCTION fn_total_donation_value
 RETURN NUMBER IS
     v_total NUMBER := 0;
@@ -115,15 +91,7 @@ EXCEPTION
 END fn_total_donation_value;
 /
 
-PROMPT --> fn_total_donation_value created.
-
-
-PROMPT ============================================================
-PROMPT  STEP 3 — VIEWS (3 Application-Relevant Views)
-PROMPT ============================================================
-
--- VIEW 1: VW_ACTIVE_DISASTERS
-
+-- View: VW_ACTIVE_DISASTERS (active disaster events)
 CREATE OR REPLACE VIEW VW_ACTIVE_DISASTERS AS
 SELECT
     disaster_name,
@@ -135,11 +103,7 @@ SELECT
 FROM DISASTER_EVENT
 WHERE end_date IS NULL;
 
-PROMPT --> VW_ACTIVE_DISASTERS view created.
-
-
--- VIEW 2: VW_SHELTER_OCCUPANCY
-
+-- View: VW_SHELTER_OCCUPANCY (shelter capacity and occupancy rates)
 CREATE OR REPLACE VIEW VW_SHELTER_OCCUPANCY AS
 SELECT
     SH.shelter_id,
@@ -158,11 +122,7 @@ LEFT JOIN RESIDES_IN R
       AND R.checkout_date IS NULL
 GROUP BY SH.shelter_id, SH.shelter_name, SH.capacity, SH.current_status;
 
-PROMPT --> VW_SHELTER_OCCUPANCY view created.
-
-
--- VIEW 3: VW_VICTIM_DISASTER_SUMMARY
-
+-- View: VW_VICTIM_DISASTER_SUMMARY (victim statistics per disaster)
 CREATE OR REPLACE VIEW VW_VICTIM_DISASTER_SUMMARY AS
 SELECT
     D.disaster_name,
@@ -178,19 +138,9 @@ LEFT JOIN VICTIM V ON V.disaster_name = D.disaster_name
 GROUP BY D.disaster_name, D.disaster_type, D.division, D.district,
          D.start_date, D.end_date;
 
-PROMPT --> VW_VICTIM_DISASTER_SUMMARY view created.
-
-
-PROMPT ============================================================
-PROMPT  STEP 4 — PROCEDURE with CURSOR & EXCEPTION HANDLING
-PROMPT ============================================================
-
--- ─────────────────────────────────────────────────────────────
--- PROCEDURE: sp_shelter_capacity_alert
-
+-- Procedure: sp_shelter_capacity_alert (evaluates shelter occupancy and prints status)
 CREATE OR REPLACE PROCEDURE sp_shelter_capacity_alert IS
 
-    -- ── EXPLICIT CURSOR DECLARATION ──────────────────────────
     CURSOR c_shelter_occupancy IS
         SELECT
             SH.shelter_id,
@@ -285,13 +235,7 @@ EXCEPTION
 END sp_shelter_capacity_alert;
 /
 
-PROMPT --> sp_shelter_capacity_alert procedure created.
-
-
-PROMPT ============================================================
-PROMPT  STEP 5 — VERIFY ALL OBJECTS
-PROMPT ============================================================
-
+-- Verify status of created objects
 SELECT object_name, object_type, status
 FROM   user_objects
 WHERE  object_name IN (
@@ -305,10 +249,5 @@ WHERE  object_name IN (
            'SP_SHELTER_CAPACITY_ALERT'
        )
 ORDER  BY object_type, object_name;
-
-PROMPT ============================================================
-PROMPT  INSTALLATION COMPLETE.
-PROMPT  Run the exam demo script: exam_demo.sql
-PROMPT ============================================================
 
 EXIT;

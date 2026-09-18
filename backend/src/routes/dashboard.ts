@@ -1,13 +1,12 @@
 import { Router } from 'express';
 import { query } from '../config/db';
-import { requireAnyAuth } from '../middleware/auth';
 
 const router = Router();
 
-// GET /api/dashboard — All KPI data for the dashboard in one call (accessible publicly)
+// GET /api/dashboard - Aggregate KPI metrics and summary data
 router.get('/', async (req, res) => {
   try {
-    // Single query for all KPIs using subselects from DUAL (Oracle pattern)
+    // KPI metrics via aggregate subqueries and PL/SQL functions
     const [counts] = await query<{
       TOTAL_DISASTERS: number;
       ACTIVE_DISASTERS: number;
@@ -20,40 +19,58 @@ router.get('/', async (req, res) => {
       AVAILABLE_VEHICLES: number;
       TOTAL_DONATIONS: number;
       TOTAL_DISTRIBUTIONS: number;
+      TOTAL_DONATION_VALUE: number;
     }>(`
       SELECT
-        (SELECT COUNT(*) FROM DISASTER_EVENT)                          AS TOTAL_DISASTERS,
-        fn_active_disaster_count()                                     AS ACTIVE_DISASTERS,
-        (SELECT COUNT(*) FROM VICTIM)                                  AS TOTAL_VICTIMS,
-        (SELECT COUNT(*) FROM VICTIM WHERE missing_person = 'Y')       AS MISSING_VICTIMS,
-        (SELECT COUNT(*) FROM SHELTER)                                 AS TOTAL_SHELTERS,
-        (SELECT COUNT(*) FROM PERSONNEL)                               AS TOTAL_PERSONNEL,
-        (SELECT COUNT(*) FROM WAREHOUSE)                               AS TOTAL_WAREHOUSES,
-        (SELECT COUNT(*) FROM VEHICLE)                                 AS TOTAL_VEHICLES,
+        (SELECT COUNT(*) FROM DISASTER_EVENT)                                         AS TOTAL_DISASTERS,
+        fn_active_disaster_count()                                                    AS ACTIVE_DISASTERS,
+        (SELECT COUNT(*) FROM VICTIM)                                                 AS TOTAL_VICTIMS,
+        (SELECT COUNT(*) FROM VICTIM WHERE missing_person = 'Y')                     AS MISSING_VICTIMS,
+        (SELECT COUNT(*) FROM SHELTER)                                                AS TOTAL_SHELTERS,
+        (SELECT COUNT(*) FROM PERSONNEL)                                              AS TOTAL_PERSONNEL,
+        (SELECT COUNT(*) FROM WAREHOUSE)                                              AS TOTAL_WAREHOUSES,
+        (SELECT COUNT(*) FROM VEHICLE)                                                AS TOTAL_VEHICLES,
         (SELECT COUNT(*) FROM VEHICLE WHERE LOWER(availability_status) = 'available') AS AVAILABLE_VEHICLES,
-        (SELECT COUNT(*) FROM DONATION)                                AS TOTAL_DONATIONS,
-        (SELECT COUNT(*) FROM DISTRIBUTION)                            AS TOTAL_DISTRIBUTIONS
+        (SELECT COUNT(*) FROM DONATION)                                               AS TOTAL_DONATIONS,
+        (SELECT COUNT(*) FROM DISTRIBUTION)                                           AS TOTAL_DISTRIBUTIONS,
+        fn_total_donation_value()                                                     AS TOTAL_DONATION_VALUE
       FROM DUAL
     `);
 
-    // Recent active disasters (last 5) using the VW_ACTIVE_DISASTERS view
+    // Recent active disasters
     const recentDisasters = await query(`
       SELECT * FROM (
-        SELECT 
-          disaster_name, disaster_type, start_date, NULL as end_date, division, district
+        SELECT
+          disaster_name, disaster_type, start_date, NULL AS end_date, division, district
         FROM VW_ACTIVE_DISASTERS
         ORDER BY start_date DESC
       ) WHERE ROWNUM <= 5
     `);
 
-    // Shelter capacity overview (top 5) using the VW_SHELTER_OCCUPANCY view
+    // Top shelter capacity overview
     const shelterStats = await query(`
       SELECT * FROM (
         SELECT
-          shelter_id, shelter_name, capacity, current_occupancy, available_spots as available_capacity
+          shelter_id, shelter_name, capacity, current_occupancy, available_spots AS available_capacity
         FROM VW_SHELTER_OCCUPANCY
         ORDER BY available_spots ASC
       ) WHERE ROWNUM <= 5
+    `);
+
+    // Disaster victim summary
+    const disasterVictimSummary = await query(`
+      SELECT * FROM (
+        SELECT
+          disaster_name,
+          disaster_type,
+          division,
+          district,
+          total_victims,
+          missing_count,
+          disaster_status
+        FROM VW_VICTIM_DISASTER_SUMMARY
+        ORDER BY total_victims DESC
+      ) WHERE ROWNUM <= 10
     `);
 
     res.json({
@@ -61,6 +78,7 @@ router.get('/', async (req, res) => {
         kpis: counts,
         recent_disasters: recentDisasters,
         shelter_stats: shelterStats,
+        disaster_victim_summary: disasterVictimSummary,
       }
     });
   } catch (err: any) {

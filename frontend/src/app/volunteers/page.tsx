@@ -9,9 +9,10 @@ type Volunteer = {
   PERSON_ID: string;
   NAME: string;
   PHONE: string;
-  DESIGNATION: string;
   BASE_LOCATION: string;
-  TEAM: string;
+  AVAILABILITY_STATUS: string;
+  DEPLOYED_SHELTER_NAME: string;
+  SKILL: string;
 };
 
 const EMPTY_FORM = {
@@ -33,7 +34,7 @@ export default function VolunteersPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
-  const teams = Array.from(new Set(volunteers.map((v) => v.TEAM).filter(Boolean)));
+  const teams = Array.from(new Set(volunteers.map((v) => v.SKILL).filter(Boolean)));
 
   const setField = (k: string, v: string) => setForm((p) => ({ ...p, [k]: v }));
 
@@ -114,7 +115,7 @@ export default function VolunteersPage() {
         {teams.length > 0 && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {teams.map((team) => {
-              const count = volunteers.filter((v) => v.TEAM === team).length;
+              const count = volunteers.filter((v) => v.SKILL === team).length;
               return (
                 <div key={team} className="bg-white border border-gray-200 rounded-[2rem] p-6 shadow-sm">
                   <div className="flex items-center gap-2 mb-2">
@@ -138,7 +139,7 @@ export default function VolunteersPage() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr>
-                  {["ID", "Name", "Team", "Phone", "Base Location", "Designation"].map((h) => (
+                  {["ID", "Name", "Status", "Skill", "Phone", "Base Location"].map((h) => (
                     <th key={h} className="p-4 font-mono text-xs text-gray-500 uppercase tracking-wider font-bold bg-azure border-b border-gray-200 first:rounded-tl-xl last:rounded-tr-xl">
                       {h}
                     </th>
@@ -159,14 +160,20 @@ export default function VolunteersPage() {
                       <td className="p-4 font-bold text-cobalt">{v.PERSON_ID}</td>
                       <td className="p-4 font-bold">{v.NAME}</td>
                       <td className="p-4">
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-blue-50 text-cobalt font-bold text-xs uppercase tracking-wide border border-blue-100">
-                          <span className="material-symbols-outlined icon-thick text-[14px]">groups</span>
-                          {v.TEAM || "General"}
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg font-bold text-xs uppercase tracking-wide ${
+                          v.AVAILABILITY_STATUS === "Deployed" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${
+                            v.AVAILABILITY_STATUS === "Deployed" ? "bg-blue-500" : "bg-green-500 animate-pulse"
+                          }`} />
+                          {v.AVAILABILITY_STATUS === "Deployed" && v.DEPLOYED_SHELTER_NAME
+                            ? `Deployed @ ${v.DEPLOYED_SHELTER_NAME}`
+                            : (v.AVAILABILITY_STATUS || "Available")}
                         </span>
                       </td>
+                      <td className="p-4 text-gray-600">{v.SKILL || "—"}</td>
                       <td className="p-4 font-mono text-gray-600">{v.PHONE || "—"}</td>
                       <td className="p-4 text-gray-600">{v.BASE_LOCATION || "—"}</td>
-                      <td className="p-4 text-gray-600 font-medium">{v.DESIGNATION || "Volunteer"}</td>
                     </tr>
                   ))
                 )}

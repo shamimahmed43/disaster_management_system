@@ -418,6 +418,7 @@ export default function PublicDashboardPage() {
                         <th className="p-4 text-xs font-medium font-mono text-secondary font-bold">LOCATION</th>
                         <th className="p-4 text-xs font-medium font-mono text-secondary font-bold">STATUS</th>
                         <th className="p-4 text-xs font-medium font-mono text-secondary font-bold">SHELTERS</th>
+                        <th className="p-4 text-xs font-medium font-mono text-secondary font-bold">VOLS</th>
                         <th className="p-4 text-xs font-medium font-mono text-secondary font-bold text-right">ACTION</th>
                       </tr>
                     </thead>
@@ -451,7 +452,16 @@ export default function PublicDashboardPage() {
                                     <span className="text-success font-bold flex items-center gap-1"><span className="material-symbols-outlined text-sm">check</span>RESOLVED</span>
                                 )}
                               </td>
-                              <td className="p-4 text-sm font-mono text-primary font-bold">{dShelters.length}</td>
+                              <td className="p-4 text-sm font-mono text-primary font-bold">
+                                <div className="flex items-center gap-1.5 bg-surface-bright/50 px-2 py-1 rounded w-max">
+                                  <span className="material-symbols-outlined text-[14px]">night_shelter</span> {dShelters.length}
+                                </div>
+                              </td>
+                              <td className="p-4 text-sm font-mono text-primary font-bold">
+                                <div className="flex items-center gap-1.5 bg-surface-bright/50 px-2 py-1 rounded w-max">
+                                  <span className="material-symbols-outlined text-[14px]">support_agent</span> {d.TOTAL_VOLUNTEERS || 0}
+                                </div>
+                              </td>
                               <td className="p-4 text-right">
                                 <button className="text-secondary hover:text-primary transition-colors p-2">
                                   <span className={`material-symbols-outlined transition-transform duration-300 ${isExpanded ? 'rotate-180 text-primary' : ''}`}>
@@ -481,6 +491,7 @@ export default function PublicDashboardPage() {
                                             <th className="py-2 text-xs text-secondary">NAME</th>
                                             <th className="py-2 text-xs text-secondary">STATUS</th>
                                             <th className="py-2 text-xs text-secondary">CAPACITY</th>
+                                            <th className="py-2 text-xs text-secondary text-right">VOLS</th>
                                             <th className="py-2 text-xs text-secondary text-right">COMM</th>
                                           </tr>
                                         </thead>
@@ -505,6 +516,9 @@ export default function PublicDashboardPage() {
                                                     </div>
                                                     <span className="text-secondary text-xs">{s.CURRENT_OCCUPANCY ?? 0}/{s.CAPACITY}</span>
                                                   </div>
+                                                </td>
+                                                <td className="py-3 text-sm font-mono text-right text-primary font-bold">
+                                                  {s.DEPLOYED_VOLUNTEERS || 0}
                                                 </td>
                                                 <td className="py-3 text-sm font-mono text-right text-secondary">
                                                   {s.CONTACT_PERSON_PHONE || "N/A"}

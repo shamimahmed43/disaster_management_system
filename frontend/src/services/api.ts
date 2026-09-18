@@ -117,6 +117,12 @@ export const createDonation = (data: Record<string, unknown>) =>
   apiFetch('/donations', { method: 'POST', body: JSON.stringify(data) });
 
 // ============================================================
+// SHELTERS (Extended)
+// ============================================================
+export const getShelterPersonnel = (id: string) =>
+  apiFetch<Record<string, unknown>[]>(`/shelters/${id}/personnel`);
+
+// ============================================================
 // DISTRIBUTIONS (Relief)
 // ============================================================
 export const getDistributions = () =>

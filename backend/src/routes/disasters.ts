@@ -33,19 +33,21 @@ router.get('/', async (req, res) => {
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
     const rows = await query(`
       SELECT
-        disaster_name,
-        disaster_type,
-        division,
-        district,
-        start_date,
-        end_date,
+        D.disaster_name,
+        D.disaster_type,
+        D.division,
+        D.district,
+        D.start_date,
+        D.end_date,
         CASE
-          WHEN start_date > SYSDATE THEN 'Upcoming'
-          WHEN end_date IS NOT NULL AND end_date <= SYSDATE THEN 'Resolved'
+          WHEN D.start_date > SYSDATE THEN 'Upcoming'
+          WHEN D.end_date IS NOT NULL AND D.end_date <= SYSDATE THEN 'Resolved'
           ELSE 'Active'
         END AS status,
-        (end_date - start_date) AS duration_days
-      FROM DISASTER_EVENT
+        (D.end_date - D.start_date) AS duration_days,
+        (SELECT COUNT(*) FROM SHELTER S WHERE S.disaster_name = D.disaster_name) AS total_shelters,
+        (SELECT COUNT(*) FROM DEPLOYED_AT DA JOIN SHELTER S ON DA.shelter_id = S.shelter_id WHERE S.disaster_name = D.disaster_name) AS total_volunteers
+      FROM DISASTER_EVENT D
       ${whereClause}
       ORDER BY start_date DESC
     `, params);
@@ -114,6 +116,43 @@ router.post('/', requireRole(['admin']), async (req, res) => {
   }
 });
 
+// GET /api/disasters/:name/volunteers-to-release
+// Returns count + names of volunteers deployed to this disaster's shelters
+router.get('/:name/volunteers-to-release', requireRole(['admin']), async (req, res) => {
+  const name = decodeURIComponent(req.params.name as string);
+  try {
+    const rows = await query(`
+      SELECT P.name AS person_name, S.shelter_name
+      FROM DEPLOYED_AT DA
+      JOIN PERSONNEL P ON DA.person_id = P.person_id
+      JOIN SHELTER S ON DA.shelter_id = S.shelter_id
+      WHERE S.disaster_name = :name
+    `, [name]);
+    res.json({ data: rows, count: rows.length });
+  } catch (err: any) {
+    const msg = process.env.NODE_ENV === 'development' ? err.message : 'Failed to fetch volunteer count';
+    res.status(500).json({ error: msg });
+  }
+});
+
+// GET /api/disasters/:name/shelters
+// Returns shelters associated with this disaster
+router.get('/:name/shelters', requireAnyAuth, async (req, res) => {
+  const name = decodeURIComponent(req.params.name as string);
+  try {
+    const rows = await query(`
+      SELECT shelter_id, shelter_name, current_status, capacity, address_line
+      FROM SHELTER
+      WHERE disaster_name = :name
+      ORDER BY shelter_name
+    `, [name]);
+    res.json({ data: rows });
+  } catch (err: any) {
+    const msg = process.env.NODE_ENV === 'development' ? err.message : 'Failed to fetch shelters';
+    res.status(500).json({ error: msg });
+  }
+});
+
 // PUT /api/disasters/:name
 router.put('/:name', requireRole(['admin']), async (req, res) => {
   const { disaster_type, division, district, start_date, end_date } = req.body;
@@ -139,6 +178,19 @@ router.put('/:name', requireRole(['admin']), async (req, res) => {
         name
       }
     );
+
+    // If end_date is being set → auto-release all volunteers deployed to this disaster's shelters
+    if (safeEndDate) {
+      await query(
+        `DELETE FROM DEPLOYED_AT
+         WHERE shelter_id IN (
+           SELECT shelter_id FROM SHELTER WHERE disaster_name = :name
+         )`,
+        [name]
+      );
+      // Trigger trg_volunteer_status_update fires automatically → sets availability_status = 'Available'
+    }
+
     res.json({ message: 'Disaster updated' });
   } catch (err: any) {
     const msg = process.env.NODE_ENV === 'development' ? err.message : 'Failed to update disaster';

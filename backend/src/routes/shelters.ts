@@ -5,7 +5,7 @@ import { requireRole, requireAnyAuth, requireVictimOwnership } from '../middlewa
 
 const router = Router();
 
-// GET /api/shelters/alerts - Task 2: Procedure with Cursor & Exception Handling
+// GET /api/shelters/alerts - Retrieve capacity alerts via stored procedure
 router.get('/alerts', requireRole(['admin', 'staff']), async (req, res) => {
   let connection;
   try {
@@ -21,8 +21,6 @@ router.get('/alerts', requireRole(['admin', 'staff']), async (req, res) => {
     const rows = [];
     let row;
     while ((row = await resultSet.getRow())) {
-      // Row is returned as an array or object depending on outFormat. By default it's an array if outFormat is ARRAY, but we can assume array or object. Let's map it.
-      // Usually outFormat = oracledb.OUT_FORMAT_OBJECT is set globally in this project's db.ts
       rows.push(row);
     }
     await resultSet.close();
@@ -134,6 +132,78 @@ router.get('/stays/:victim_id', requireVictimOwnership, async (req, res) => {
   }
 });
 
+// GET /api/shelters/cte-report - Risk classification report via Common Table Expression (CTE)
+router.get('/cte-report', async (req, res) => {
+  try {
+    const rows = await query(`
+      WITH shelter_occupancy AS (
+        SELECT
+          s.shelter_id,
+          s.shelter_name,
+          s.capacity,
+          s.current_status,
+          COUNT(r.victim_id)                                                  AS occupied,
+          ROUND(COUNT(r.victim_id) / NULLIF(s.capacity, 0) * 100, 1)         AS occupancy_pct
+        FROM SHELTER s
+        LEFT JOIN RESIDES_IN r
+               ON s.shelter_id    = r.shelter_id
+              AND r.checkout_date IS NULL
+        GROUP BY s.shelter_id, s.shelter_name, s.capacity, s.current_status
+      ),
+      shelter_risk AS (
+        SELECT
+          shelter_id,
+          shelter_name,
+          capacity,
+          current_status,
+          occupied,
+          NVL(occupancy_pct, 0) AS occupancy_pct,
+          CASE
+            WHEN occupancy_pct >= 90 THEN 'CRITICAL'
+            WHEN occupancy_pct >= 70 THEN 'HIGH'
+            WHEN occupancy_pct >= 1  THEN 'NORMAL'
+            ELSE                          'EMPTY'
+          END AS risk_level
+        FROM shelter_occupancy
+      )
+      SELECT * FROM shelter_risk ORDER BY occupancy_pct DESC
+    `);
+    res.json({ data: rows });
+  } catch (err: any) {
+    const msg = process.env.NODE_ENV === 'development' ? err.message : 'Failed to fetch CTE capacity report';
+    res.status(500).json({ error: msg });
+  }
+});
+
+// GET /api/shelters/adt-info - Retrieve structured geolocation objects
+router.get('/adt-info', async (req, res) => {
+  try {
+    const rows = await query(`
+      SELECT
+        s.shelter_id,
+        s.shelter_name,
+        s.latitude,
+        s.longitude,
+        s.address_line,
+        s.geo_location.latitude    AS geo_lat,
+        s.geo_location.longitude   AS geo_lon,
+        s.geo_location.address     AS geo_address,
+        s.geo_location.to_string() AS geo_string
+      FROM SHELTER s
+      WHERE s.geo_location IS NOT NULL
+      ORDER BY s.shelter_name
+    `);
+    res.json({ data: rows });
+  } catch (err: any) {
+    // Fallback if geo_location column is not yet populated
+    if (err.message && (err.message.includes('ORA-00904') || err.message.includes('ORA-00942'))) {
+      return res.json({ data: [], note: 'geo_location column not yet populated' });
+    }
+    const msg = process.env.NODE_ENV === 'development' ? err.message : 'Failed to fetch ADT info';
+    res.status(500).json({ error: msg });
+  }
+});
+
 // GET /api/shelters
 router.get('/', async (req, res) => {
   try {
@@ -151,7 +221,8 @@ router.get('/', async (req, res) => {
         SH.capacity,
         SH.disaster_name,
         COUNT(R.victim_id) AS current_occupancy,
-        (SH.capacity - COUNT(R.victim_id)) AS available_capacity
+        (SH.capacity - COUNT(R.victim_id)) AS available_capacity,
+        (SELECT COUNT(*) FROM DEPLOYED_AT DA WHERE DA.shelter_id = SH.shelter_id) AS deployed_volunteers
       FROM SHELTER SH
       LEFT JOIN RESIDES_IN R ON SH.shelter_id = R.shelter_id AND R.checkout_date IS NULL
       GROUP BY
@@ -313,6 +384,37 @@ router.put('/:id', requireRole(['admin', 'staff']), async (req, res) => {
   } catch (err) {
     console.error('[Shelters] PUT error:', err);
     res.status(500).json({ error: 'Failed to update shelter.' });
+  }
+});
+
+// GET /api/shelters/:id/personnel
+router.get('/:id/personnel', requireAnyAuth, async (req, res) => {
+  const shelter_id = req.params.id;
+  try {
+    const rows = await query(`
+      SELECT 
+        E.person_id, 
+        E.name, 
+        E.phone, 
+        CASE 
+          WHEN VOL.person_id IS NOT NULL THEN 'Volunteer'
+          WHEN MS.person_id IS NOT NULL THEN 'Medical Staff'
+          ELSE 'Personnel' 
+        END AS personnel_type,
+        VOL.skill AS volunteer_skill,
+        MS.specialization AS medical_specialization,
+        DA.deployment_date
+      FROM DEPLOYED_AT DA
+      JOIN PERSONNEL E ON DA.person_id = E.person_id
+      LEFT JOIN VOLUNTEER VOL ON E.person_id = VOL.person_id
+      LEFT JOIN MEDICAL_STAFF MS ON E.person_id = MS.person_id
+      WHERE DA.shelter_id = :1
+      ORDER BY DA.deployment_date DESC
+    `, [shelter_id]);
+    res.json({ data: rows });
+  } catch (err) {
+    console.error('[Shelters] GET personnel error:', err);
+    res.status(500).json({ error: 'Failed to fetch shelter personnel.' });
   }
 });
 
